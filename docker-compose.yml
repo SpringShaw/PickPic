@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  photo-sorter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: photo-sorter
+    restart: always
+    network_mode: bridge
+    ports:
+      - "8082:8082"
+    volumes:
+      # 挂载 NAS 根目录到容器（用户在应用设置页面配置具体子目录路径）
+      - /:/nas/host:ro
+      # 数据库持久化
+      - /docker/photo-sorter/db:/app/db
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8082
+      - DB_DIR=/app/db
+      - DEFAULT_BLACKLIST_DURATION=3y
+      - ENABLE_DUPLICATE_FILTER=true
