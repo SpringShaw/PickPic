@@ -12,7 +12,7 @@ services:
       - "8082:8082"
     volumes:
       # 挂载 NAS 根目录到容器（用户在应用设置页面配置具体子目录路径）
-      - /:/nas/host:ro
+      - /:/nas/host
       # 数据库持久化
       - ./data/db:/app/db
     environment:
