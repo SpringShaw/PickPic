@@ -5,7 +5,8 @@ from pathlib import Path
 from app.services.photo_service import (
     get_random_photo, add_to_blacklist, favorite_photo, delete_photo,
     get_stats, get_blacklist_count, reset_blacklist, reset_stats,
-    get_settings, update_setting, get_photo_count, get_directory_info
+    get_settings, update_setting, get_photo_count, get_directory_info,
+    _to_container_path
 )
 from app.config import BLACKLIST_DURATION_OPTIONS, NAS_HOST_DIR
 
@@ -23,8 +24,8 @@ async def random_photo():
     if not photo:
         raise HTTPException(status_code=404, detail="没有更多可浏览的图片")
 
-    # 加入黑名单
-    add_to_blacklist(photo["path"], action="viewed", duration_key=duration)
+    # 加入黑名单（path是NAS路径，需转容器路径存储）
+    add_to_blacklist(_to_container_path(photo["path"]), action="viewed", duration_key=duration)
 
     return {
         "success": True,
@@ -36,7 +37,9 @@ async def random_photo():
 @router.get("/photo/image")
 async def serve_image(path: str):
     """提供图片文件"""
-    img_path = Path(path)
+    # 前端传的是NAS路径，转为容器路径
+    container_path = _to_container_path(path)
+    img_path = Path(container_path)
     if not img_path.exists():
         raise HTTPException(status_code=404, detail="图片不存在")
 
@@ -63,7 +66,8 @@ async def serve_image(path: str):
 @router.post("/photo/favorite")
 async def favorite(file_path: str):
     """收藏图片"""
-    result = favorite_photo(file_path)
+    # 前端传的是NAS路径，转为容器路径
+    result = favorite_photo(_to_container_path(file_path))
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
     return result
@@ -72,7 +76,8 @@ async def favorite(file_path: str):
 @router.post("/photo/delete")
 async def delete(file_path: str):
     """删除图片（移入回收站）"""
-    result = delete_photo(file_path)
+    # 前端传的是NAS路径，转为容器路径
+    result = delete_photo(_to_container_path(file_path))
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
     return result

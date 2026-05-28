@@ -10,20 +10,46 @@ from pathlib import Path
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 
-from app.config import SUPPORTED_EXTENSIONS, BLACKLIST_DURATION_OPTIONS
+from app.config import SUPPORTED_EXTENSIONS, BLACKLIST_DURATION_OPTIONS, NAS_HOST_DIR
 from app.models.database import get_db
 
 
+def _to_container_path(user_path: str) -> str:
+    """将用户填写的NAS路径自动转换为容器内路径
+    
+    用户填 /vol1/xxx，自动转为 /nas/host/vol1/xxx
+    如果已经以 /nas/host 开头则不重复转换
+    """
+    if not user_path:
+        return user_path
+    user_path = user_path.strip()
+    if user_path.startswith(str(NAS_HOST_DIR)):
+        return user_path
+    # 去掉开头的斜杠再拼接
+    return str(NAS_HOST_DIR) + "/" + user_path.lstrip("/")
+
+
+def _to_nas_path(container_path: str) -> str:
+    """将容器内路径转回用户可读的NAS路径
+    
+    /nas/host/vol1/xxx → /vol1/xxx
+    """
+    prefix = str(NAS_HOST_DIR) + "/"
+    if container_path.startswith(prefix):
+        return "/" + container_path[len(prefix):]
+    return container_path
+
+
 def _get_dirs() -> dict:
-    """从数据库读取当前目录配置"""
+    """从数据库读取当前目录配置，自动转换路径"""
     db = get_db()
     rows = db.execute("SELECT key, value FROM settings WHERE key IN ('photos_dir', 'star_dir', 'recycle_dir')").fetchall()
     db.close()
     dirs = {r["key"]: r["value"] for r in rows}
     return {
-        "photos": Path(dirs.get("photos_dir", "")) if dirs.get("photos_dir") else None,
-        "star": Path(dirs.get("star_dir", "")) if dirs.get("star_dir") else None,
-        "recycle": Path(dirs.get("recycle_dir", "")) if dirs.get("recycle_dir") else None,
+        "photos": Path(_to_container_path(dirs.get("photos_dir", ""))) if dirs.get("photos_dir") else None,
+        "star": Path(_to_container_path(dirs.get("star_dir", ""))) if dirs.get("star_dir") else None,
+        "recycle": Path(_to_container_path(dirs.get("recycle_dir", ""))) if dirs.get("recycle_dir") else None,
     }
 
 
@@ -148,9 +174,9 @@ def get_random_photo(blacklist_duration_key: str = "3y", enable_duplicate_filter
     exif = get_exif_data(photo_path)
 
     return {
-        "path": chosen["path"],
+        "path": _to_nas_path(chosen["path"]),
         "name": chosen["name"],
-        "dir": chosen["dir"],
+        "dir": _to_nas_path(chosen["dir"]),
         "file_size": exif.get("file_size") or photo_path.stat().st_size,
         "width": exif.get("width"),
         "height": exif.get("height"),
@@ -308,16 +334,24 @@ def reset_stats():
 
 
 def get_settings() -> dict:
-    """获取所有设置"""
+    """获取所有设置，路径转为用户可读格式"""
     db = get_db()
     rows = db.execute("SELECT key, value FROM settings").fetchall()
     db.close()
-    return {r["key"]: r["value"] for r in rows}
+    result = {r["key"]: r["value"] for r in rows}
+    # 目录类设置转回NAS路径显示
+    for key in ("photos_dir", "star_dir", "recycle_dir"):
+        if key in result and result[key]:
+            result[key] = _to_nas_path(result[key])
+    return result
 
 
 def update_setting(key: str, value: str):
-    """更新设置"""
+    """更新设置，目录路径自动转换"""
     db = get_db()
+    # 目录类设置自动加 /nas/host 前缀
+    if key in ("photos_dir", "star_dir", "recycle_dir"):
+        value = _to_container_path(value)
     db.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
     db.commit()
     db.close()
@@ -336,7 +370,9 @@ def get_directory_info(path_str: str) -> dict:
     """获取目录信息（用于设置页面验证路径）"""
     if not path_str:
         return {"exists": False, "photo_count": 0, "writable": False}
-    p = Path(path_str)
+    # 自动转换用户填写的路径
+    container_path = _to_container_path(path_str)
+    p = Path(container_path)
     exists = p.exists() and p.is_dir()
     writable = exists and os.access(p, os.W_OK)
     photo_count = len(scan_photos(p)) if exists else 0
