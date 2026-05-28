@@ -66,7 +66,7 @@
                 :key="opt.value"
                 class="option-btn"
                 :class="{ active: settings.blacklist_duration === opt.value }"
-                @click="updateSetting('blacklist_duration', opt.value)"
+                @click="changeSetting('blacklist_duration', opt.value)"
               >
                 {{ opt.label }}
               </button>
@@ -129,7 +129,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import { updateSetting, resetBlacklist, resetStats, getSettings } from '../services/api'
+import { updateSetting as apiUpdateSetting, resetBlacklist, resetStats, getSettings } from '../services/api'
 import ConfirmDialog from './ConfirmDialog.vue'
 
 const props = defineProps({
@@ -195,9 +195,9 @@ async function checkDir(type) {
 async function saveDirs() {
   saving.value = true
   try {
-    await updateSetting('photos_dir', photosDir.value)
-    await updateSetting('star_dir', starDir.value)
-    await updateSetting('recycle_dir', recycleDir.value)
+    await apiUpdateSetting('photos_dir', photosDir.value)
+    await apiUpdateSetting('star_dir', starDir.value)
+    await apiUpdateSetting('recycle_dir', recycleDir.value)
     emit('updated')
   } catch (e) {
     console.error('保存失败:', e)
@@ -206,9 +206,9 @@ async function saveDirs() {
   }
 }
 
-async function updateSetting(key, value) {
+async function changeSetting(key, value) {
   try {
-    await updateSetting(key, value)
+    await apiUpdateSetting(key, value)
     emit('updated')
   } catch (e) {
     console.error('更新设置失败:', e)
@@ -217,7 +217,7 @@ async function updateSetting(key, value) {
 
 async function toggleDuplicateFilter() {
   const newVal = props.settings.enable_duplicate_filter === 'true' ? 'false' : 'true'
-  await updateSetting('enable_duplicate_filter', newVal)
+  await apiUpdateSetting('enable_duplicate_filter', newVal)
 }
 
 async function handleResetBlacklist() {

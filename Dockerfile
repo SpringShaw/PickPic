@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 # 设置环境变量
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -16,27 +16,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# 安装 Node.js 20（用于构建前端）
-RUN apt-get update && apt-get install -y --no-install-recommends curl && \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs && \
-    rm -rf /var/lib/apt/lists/*
+WORKDIR /app/backend
 
-WORKDIR /app
-
-# 先复制后端依赖安装
-COPY backend/requirements.txt /app/requirements.txt
+# 复制后端依赖安装
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 复制前端代码并构建
-COPY frontend/ /app/frontend/
-RUN cd /app/frontend && \
-    npm install && \
-    npm run build && \
-    rm -rf /app/frontend/node_modules /app/frontend/src
-
 # 复制后端代码
-COPY backend/ /app/backend/
+COPY backend/ .
 
 # 确保目录存在
 RUN mkdir -p /nas/host /app/db
@@ -45,4 +32,4 @@ RUN mkdir -p /nas/host /app/db
 EXPOSE 8082
 
 # 启动服务
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8082"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8082"]

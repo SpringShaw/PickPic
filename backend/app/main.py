@@ -8,7 +8,7 @@ from pathlib import Path
 
 from app.api.routes import router
 from app.models.database import init_db
-from app.config import PHOTOS_DIR, STAR_DIR, RECYCLE_DIR, DB_DIR
+from app.config import DEFAULT_PHOTOS_DIR, DEFAULT_STAR_DIR, DEFAULT_RECYCLE_DIR, DB_DIR
 
 app = FastAPI(title="去留 - 相册整理工具", version="1.0.0")
 
@@ -28,15 +28,14 @@ app.include_router(router)
 @app.on_event("startup")
 async def startup():
     """启动时初始化"""
-    # 确保目录存在
-    for d in [PHOTOS_DIR, STAR_DIR, RECYCLE_DIR, DB_DIR]:
-        d.mkdir(parents=True, exist_ok=True)
+    # 确保 DB_DIR 存在
+    DB_DIR.mkdir(parents=True, exist_ok=True)
     # 初始化数据库
     init_db()
     print("✅ 去留 相册整理工具已启动")
-    print(f"📁 图片目录: {PHOTOS_DIR}")
-    print(f"⭐ 收藏目录: {STAR_DIR}")
-    print(f"🗑️ 回收站: {RECYCLE_DIR}")
+    print(f"📁 默认图片目录: {DEFAULT_PHOTOS_DIR or '(请在设置中配置)'}")
+    print(f"⭐ 默认收藏目录: {DEFAULT_STAR_DIR or '(请在设置中配置)'}")
+    print(f"🗑️ 默认回收站: {DEFAULT_RECYCLE_DIR or '(请在设置中配置)'}")
     print(f"💾 数据库: {DB_DIR}")
 
 

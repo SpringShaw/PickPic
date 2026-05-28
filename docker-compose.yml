@@ -14,7 +14,7 @@ services:
       # 挂载 NAS 根目录到容器（用户在应用设置页面配置具体子目录路径）
       - /:/nas/host:ro
       # 数据库持久化
-      - /docker/photo-sorter/db:/app/db
+      - ./data/db:/app/db
     environment:
       - HOST=0.0.0.0
       - PORT=8082
