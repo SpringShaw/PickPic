@@ -212,9 +212,9 @@ def scan_and_cache(force: bool = False) -> dict:
         )
         db.commit()
 
-        # 读取数据库中已有的照片（路径 → mtime 映射）
+        # 读取数据库中已有的活跃照片（路径 → mtime 映射）
         cached = {}
-        for row in db.execute("SELECT file_path, mtime FROM photos").fetchall():
+        for row in db.execute("SELECT file_path, mtime FROM photos WHERE status='active'").fetchall():
             cached[row["file_path"]] = row["mtime"]
 
         # 扫描文件系统
@@ -279,13 +279,13 @@ def scan_and_cache(force: bool = False) -> dict:
                 time.sleep(0.1)  # 给其他操作一点时间
                 db = get_db()  # 重新打开连接
 
-        # 删除已不存在的照片
+        # 活跃照片中不在文件系统的，标记为已删除
         deleted_count = 0
         if cached:
             missing = set(cached.keys()) - fs_paths
             if missing:
                 for fpath in missing:
-                    db.execute("DELETE FROM photos WHERE file_path = ?", (fpath,))
+                    db.execute("UPDATE photos SET status='deleted', deleted_at=? WHERE file_path=? AND status='active'", (now, fpath))
                 deleted_count = len(missing)
 
         # 最终提交
@@ -341,9 +341,9 @@ def get_scan_status() -> dict:
 
 
 def get_cached_photo_count() -> int:
-    """获取缓存中的照片数量"""
+    """获取缓存中的活跃照片数量"""
     db = get_db()
-    row = db.execute("SELECT COUNT(*) as cnt FROM photos").fetchone()
+    row = db.execute("SELECT COUNT(*) as cnt FROM photos WHERE status='active'").fetchone()
     db.close()
     return row["cnt"] if row else 0
 
@@ -370,17 +370,17 @@ def get_random_photo(blacklist_duration_key: str = "3y", enable_duplicate_filter
         if blacklisted_hashes:
             placeholders = ",".join("?" * len(blacklisted_hashes))
             candidates = db.execute(
-                f"SELECT * FROM photos WHERE file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?) AND (file_hash IS NULL OR file_hash NOT IN ({placeholders}))",
+                f"SELECT * FROM photos WHERE status='active' AND file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?) AND (file_hash IS NULL OR file_hash NOT IN ({placeholders}))",
                 [now] + list(blacklisted_hashes)
             ).fetchall()
         else:
             candidates = db.execute(
-                "SELECT * FROM photos WHERE file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?)",
+                "SELECT * FROM photos WHERE status='active' AND file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?)",
                 (now,)
             ).fetchall()
     else:
         candidates = db.execute(
-            "SELECT * FROM photos WHERE file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?)",
+            "SELECT * FROM photos WHERE status='active' AND file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?)",
             (now,)
         ).fetchall()
 
@@ -468,6 +468,10 @@ def favorite_photo(file_path: str) -> dict:
             (str(dest), file_path, now)
         )
         db.execute(
+            "UPDATE photos SET status='favorited' WHERE file_path=? AND status='active'",
+            (file_path,)
+        )
+        db.execute(
             "UPDATE stats SET favorited_count = favorited_count + 1, last_updated = ? WHERE id = 1",
             (now,)
         )
@@ -502,10 +506,13 @@ def delete_photo(file_path: str) -> dict:
     try:
         file_size = src.stat().st_size
         shutil.move(str(src), str(dest))
-        # 从缓存中删除
+        # 标记为已删除，更新路径到回收站
         db = get_db()
-        db.execute("DELETE FROM photos WHERE file_path = ?", (file_path,))
         now = time.time()
+        db.execute(
+            "UPDATE photos SET status='deleted', deleted_at=?, file_path=? WHERE file_path=? AND status='active'",
+            (now, str(dest), file_path)
+        )
         db.execute(
             "UPDATE stats SET deleted_count = deleted_count + 1, cleaned_bytes = cleaned_bytes + ?, last_updated = ? WHERE id = 1",
             (file_size, now)
@@ -531,6 +538,101 @@ def get_stats() -> dict:
             "cleaned_mb": round(row["cleaned_bytes"] / (1024 * 1024), 2),
         }
     return {"viewed_count": 0, "favorited_count": 0, "deleted_count": 0, "cleaned_bytes": 0, "cleaned_mb": 0}
+
+
+def restore_photo(file_path: str) -> dict:
+    """从回收站恢复照片到源目录"""
+    dirs = _get_dirs()
+    photos_dir = dirs.get("photos")
+    if not photos_dir:
+        return {"success": False, "error": "图片源目录未配置"}
+
+    src = Path(file_path)
+    if not src.exists():
+        return {"success": False, "error": "文件不存在"}
+
+    photos_dir.mkdir(parents=True, exist_ok=True)
+    dest = photos_dir / src.name
+
+    counter = 1
+    while dest.exists():
+        dest = photos_dir / f"{src.stem}_{counter}{src.suffix}"
+        counter += 1
+
+    try:
+        shutil.move(str(src), str(dest))
+        db = get_db()
+        db.execute(
+            "UPDATE photos SET status='active', deleted_at=NULL, file_path=? WHERE file_path=? AND status='deleted'",
+            (str(dest), file_path)
+        )
+        db.commit()
+        db.close()
+        return {"success": True, "dest": str(dest), "message": f"已恢复到 {photos_dir.name}/"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def restore_all_photos() -> dict:
+    """批量恢复回收站所有照片"""
+    dirs = _get_dirs()
+    photos_dir = dirs.get("photos")
+    if not photos_dir:
+        return {"success": False, "error": "图片源目录未配置"}
+
+    db = get_db()
+    rows = db.execute("SELECT file_path FROM photos WHERE status='deleted'").fetchall()
+    photos_dir.mkdir(parents=True, exist_ok=True)
+    restored = 0
+    for row in rows:
+        src = Path(row["file_path"])
+        if not src.exists():
+            continue
+        dest = photos_dir / src.name
+        counter = 1
+        while dest.exists():
+            dest = photos_dir / f"{src.stem}_{counter}{src.suffix}"
+            counter += 1
+        try:
+            shutil.move(str(src), str(dest))
+            db.execute(
+                "UPDATE photos SET status='active', deleted_at=NULL, file_path=? WHERE file_path=?",
+                (str(dest), str(src))
+            )
+            restored += 1
+        except Exception:
+            continue
+    db.commit()
+    db.close()
+    return {"success": True, "restored": restored, "message": f"已恢复 {restored} 张照片"}
+
+
+def get_deleted_photos() -> list:
+    """获取回收站照片列表（从数据库查，含完整元数据）"""
+    db = get_db()
+    rows = db.execute(
+        "SELECT * FROM photos WHERE status='deleted' ORDER BY deleted_at DESC"
+    ).fetchall()
+    db.close()
+    result = []
+    for r in rows:
+        thumb_url = None
+        if r["file_hash"]:
+            tp = _get_thumb_path(r["file_hash"])
+            if tp.exists():
+                thumb_url = f"/api/photo/thumbnail/{r['file_hash']}"
+        result.append({
+            "name": r["name"],
+            "path": r["file_path"],
+            "size": r["file_size"],
+            "mtime": r["mtime"],
+            "deleted_at": r["deleted_at"],
+            "file_hash": r["file_hash"],
+            "thumb_url": thumb_url,
+            "date": r["date"],
+            "location": r["location"],
+        })
+    return result
 
 
 def get_blacklist_count() -> int:

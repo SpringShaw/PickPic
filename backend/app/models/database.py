@@ -80,11 +80,22 @@ def init_db():
             location TEXT,
             thumb_path TEXT,
             dir TEXT,
-            name TEXT
+            name TEXT,
+            status TEXT DEFAULT 'active',
+            deleted_at REAL
         )
     """)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_photos_hash ON photos(file_hash)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_photos_dir ON photos(dir)")
+
+    # 兼容旧数据库：给 photos 表加 status / deleted_at 列（如果缺失）
+    cursor.execute("PRAGMA table_info(photos)")
+    photo_columns = {row[1] for row in cursor.fetchall()}
+    if 'status' not in photo_columns:
+        cursor.execute("ALTER TABLE photos ADD COLUMN status TEXT DEFAULT 'active'")
+    if 'deleted_at' not in photo_columns:
+        cursor.execute("ALTER TABLE photos ADD COLUMN deleted_at REAL")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_photos_status ON photos(status)")
 
     # 扫描状态表（新增）
     cursor.execute("""

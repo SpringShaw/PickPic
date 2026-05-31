@@ -1,15 +1,14 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
 from pathlib import Path
-import shutil
 
 from app.services.photo_service import (
     get_random_photo, add_to_blacklist, favorite_photo, delete_photo,
     get_stats, get_blacklist_count, reset_blacklist, reset_stats,
     get_settings, update_setting, get_photo_count, get_directory_info,
     get_scan_status, scan_and_cache, get_cached_photo_count,
-    _to_container_path, _get_thumb_path, scan_photos, _get_dirs,
-    compute_file_hash
+    _to_container_path, _get_thumb_path,
+    get_deleted_photos, restore_photo, restore_all_photos
 )
 from app.config import BLACKLIST_DURATION_OPTIONS, NAS_HOST_DIR
 
@@ -155,101 +154,25 @@ async def api_scan_status():
 
 @router.get("/recycle")
 async def api_recycle_list():
-    """获取回收站照片列表（含缩略图）"""
-    dirs = _get_dirs()
-    recycle_dir = dirs.get("recycle")
-    if not recycle_dir or not recycle_dir.exists():
-        return {"success": True, "data": [], "count": 0}
-
-    photos = scan_photos(recycle_dir)
-    result = []
-    for p in photos:
-        fpath = Path(p["path"])
-        file_hash = compute_file_hash(fpath)
-        thumb_url = None
-        if file_hash:
-            thumb_path = _get_thumb_path(file_hash)
-            if thumb_path.exists():
-                thumb_url = f"/api/photo/thumbnail/{file_hash}"
-        result.append({
-            "name": p["name"],
-            "path": p["path"],
-            "size": p["size"],
-            "mtime": p["mtime"],
-            "file_hash": file_hash,
-            "thumb_url": thumb_url,
-        })
-    # 按删除时间倒序
-    result.sort(key=lambda x: x["mtime"], reverse=True)
-    return {"success": True, "data": result, "count": len(result)}
+    """获取回收站照片列表（从数据库查，含缩略图和元数据）"""
+    photos = get_deleted_photos()
+    return {"success": True, "data": photos, "count": len(photos)}
 
 
 @router.post("/recycle/restore")
 async def api_recycle_restore(file_path: str):
     """从回收站恢复照片到源目录"""
-    dirs = _get_dirs()
-    recycle_dir = dirs.get("recycle")
-    photos_dir = dirs.get("photos")
-    if not recycle_dir:
-        raise HTTPException(status_code=400, detail="回收站目录未配置")
-    if not photos_dir:
-        raise HTTPException(status_code=400, detail="图片源目录未配置")
-
-    src = Path(file_path)
-    if not src.exists():
-        raise HTTPException(status_code=404, detail="文件不存在")
-
-    # 验证文件确实在回收站内
-    try:
-        src.resolve().relative_to(recycle_dir.resolve())
-    except ValueError:
-        raise HTTPException(status_code=403, detail="只能恢复回收站内的文件")
-
-    photos_dir.mkdir(parents=True, exist_ok=True)
-    dest = photos_dir / src.name
-
-    # 处理重名
-    counter = 1
-    while dest.exists():
-        dest = photos_dir / f"{src.stem}_{counter}{src.suffix}"
-        counter += 1
-
-    try:
-        shutil.move(str(src), str(dest))
-        return {"success": True, "dest": str(dest), "message": f"已恢复到 {photos_dir.name}/"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"恢复失败: {e}")
+    result = restore_photo(file_path)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
 
 
 @router.post("/recycle/restore-all")
 async def api_recycle_restore_all():
     """批量恢复回收站所有照片"""
-    dirs = _get_dirs()
-    recycle_dir = dirs.get("recycle")
-    photos_dir = dirs.get("photos")
-    if not recycle_dir:
-        raise HTTPException(status_code=400, detail="回收站目录未配置")
-    if not photos_dir:
-        raise HTTPException(status_code=400, detail="图片源目录未配置")
-    if not recycle_dir.exists():
-        return {"success": True, "restored": 0, "message": "回收站为空"}
-
-    photos = scan_photos(recycle_dir)
-    photos_dir.mkdir(parents=True, exist_ok=True)
-    restored = 0
-    for p in photos:
-        src = Path(p["path"])
-        dest = photos_dir / src.name
-        counter = 1
-        while dest.exists():
-            dest = photos_dir / f"{src.stem}_{counter}{src.suffix}"
-            counter += 1
-        try:
-            shutil.move(str(src), str(dest))
-            restored += 1
-        except Exception:
-            continue
-    return {"success": True, "restored": restored, "message": f"已恢复 {restored} 张照片"}
+    result = restore_all_photos()
+    return result
 
 
 @router.delete("/recycle/empty")
