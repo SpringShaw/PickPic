@@ -112,23 +112,30 @@ function clampTranslate() {
   if (!imgRef.value || !containerRef.value) return
   const cw = containerRef.value.clientWidth
   const ch = containerRef.value.clientHeight
-  const iw = imgRef.value.naturalWidth * scale.value
-  const ih = imgRef.value.naturalHeight * scale.value
+  const nw = imgRef.value.naturalWidth
+  const nh = imgRef.value.naturalHeight
+  if (!nw || !nh) return
 
-  // 计算图片在容器中的实际显示尺寸
   const containerRatio = cw / ch
-  const imgRatio = imgRef.value.naturalWidth / imgRef.value.naturalHeight
-  let displayW, displayH
+  const imgRatio = nw / nh
+
+  // 图片在 scale=1 时的显示尺寸（contain 模式）
+  let baseW, baseH
   if (imgRatio > containerRatio) {
-    displayW = Math.min(iw, cw)
-    displayH = displayW / imgRatio
+    baseW = cw
+    baseH = cw / imgRatio
   } else {
-    displayH = Math.min(ih, ch)
-    displayW = displayH * imgRatio
+    baseH = ch
+    baseW = ch * imgRatio
   }
 
-  const maxX = Math.max(0, (displayW - cw) / 2)
-  const maxY = Math.max(0, (displayH - ch) / 2)
+  // 放大后的实际尺寸
+  const scaledW = baseW * scale.value
+  const scaledH = baseH * scale.value
+
+  // 只有放大到超出容器时才允许平移
+  const maxX = Math.max(0, (scaledW - cw) / 2)
+  const maxY = Math.max(0, (scaledH - ch) / 2)
 
   translateX.value = Math.max(-maxX, Math.min(maxX, translateX.value))
   translateY.value = Math.max(-maxY, Math.min(maxY, translateY.value))
