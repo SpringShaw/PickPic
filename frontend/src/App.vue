@@ -30,6 +30,7 @@
           :photo="nextPhoto"
           mode="back"
           :revealing="isRevealing"
+          :revealProgress="swipeProgress"
         />
 
         <!-- 前面卡片（当前） -->
@@ -37,6 +38,7 @@
           :key="'front-' + currentPhoto.path"
           :photo="currentPhoto"
           mode="front"
+          @swipe-progress="onSwipeProgress"
           @leave-start="onLeaveStart"
           @leave-done="onLeaveDone"
           @double-tap="onFavorite"
@@ -110,6 +112,7 @@ import ImageViewer from './components/ImageViewer.vue'
 const currentPhoto = ref(null)
 const nextPhoto = ref(null)
 const isRevealing = ref(false)
+const swipeProgress = ref(0)
 const stats = ref({})
 const settings = ref({})
 const showInfo = ref(false)
@@ -181,9 +184,15 @@ async function loadSettings() {
   }
 }
 
+// 滑动进度 → 驱动背面卡片渐进揭示
+function onSwipeProgress(progress) {
+  swipeProgress.value = progress
+}
+
 // 卡片开始飞出 → 触发背面卡片揭示动画
 function onLeaveStart() {
   isRevealing.value = true
+  swipeProgress.value = 1
 }
 
 // 卡片飞出完成 → 切换到下一张
@@ -199,6 +208,7 @@ async function onLeaveDone(direction) {
   // favorite / right → 不调删除API，直接切下一张
 
   isRevealing.value = false
+  swipeProgress.value = 0
 
   if (nextPhoto.value) {
     currentPhoto.value = nextPhoto.value

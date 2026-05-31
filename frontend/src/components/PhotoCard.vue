@@ -53,10 +53,11 @@ import { getThumbnailUrl } from '../services/api'
 const props = defineProps({
   photo: { type: Object, required: true },
   mode: { type: String, default: 'front' }, // 'front' | 'back'
-  revealing: { type: Boolean, default: false }, // back card: true when front is leaving
+  revealing: { type: Boolean, default: false },
+  revealProgress: { type: Number, default: 0 }, // 0~1, 背面卡片渐进揭示进度
 })
 
-const emit = defineEmits(['swipe-right', 'swipe-up', 'double-tap', 'single-tap', 'leave-start', 'leave-done'])
+const emit = defineEmits(['swipe-right', 'swipe-up', 'double-tap', 'single-tap', 'leave-start', 'leave-done', 'swipe-progress'])
 
 const cardRef = ref(null)
 const loading = ref(true)
@@ -79,10 +80,14 @@ const imageUrl = computed(() => getThumbnailUrl(props.photo))
 
 const cardStyle = computed(() => {
   if (props.mode === 'back') {
-    // 背面卡片：cover填满 + 初始放大，revealing时缩回正常
+    // 背面卡片：跟手渐进放大 0.82→1.0，cover填满
+    const p = Math.max(0, Math.min(1, props.revealProgress))
+    const scale = 0.3 + p * 0.7
+    const opacity = 0.3 + p * 0.7
     return {
-      transform: props.revealing ? 'scale(1)' : 'scale(1.12)',
-      transition: props.revealing ? 'transform 0.35s ease-out' : 'none',
+      transform: `scale(${scale})`,
+      opacity,
+      transition: 'none',
     }
   }
 
@@ -131,6 +136,7 @@ function onTouchMove(e) {
   const touch = e.touches[0]
   moveX.value = touch.clientX - startX.value
   moveY.value = touch.clientY - startY.value
+  emitSwipeProgress()
 
   if (Math.abs(moveX.value) > 50 && moveX.value > 0) {
     showIndicator.value = true
@@ -164,6 +170,7 @@ function onMouseMove(e) {
   if (!isMouseDown.value || props.mode !== 'front') return
   moveX.value = e.clientX - startX.value
   moveY.value = e.clientY - startY.value
+  emitSwipeProgress()
 
   if (Math.abs(moveX.value) > 50 && moveX.value > 0) {
     showIndicator.value = true
@@ -182,6 +189,16 @@ function onMouseUp() {
   isDragging.value = false
   showIndicator.value = false
   checkSwipe()
+}
+
+function emitSwipeProgress() {
+  // 右滑进度：moveX / threshold (0~1)
+  // 上滑进度：|moveY| / threshold (0~1)
+  const threshold = 80
+  const xProgress = Math.max(0, moveX.value / threshold)
+  const yProgress = Math.max(0, -moveY.value / threshold)
+  const progress = Math.min(1, Math.max(xProgress, yProgress))
+  emit('swipe-progress', progress)
 }
 
 function checkSwipe() {
@@ -306,17 +323,12 @@ onUnmounted(() => {
 .card-back {
   z-index: 10;
   pointer-events: none;
-  overflow: hidden;
-  border-radius: 12px;
 }
 
 .card-back .photo-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 12px;
-  max-width: none;
-  max-height: none;
+  max-width: 92vw;
+  max-height: 78vh;
+  object-fit: contain;
 }
 
 .photo-img {

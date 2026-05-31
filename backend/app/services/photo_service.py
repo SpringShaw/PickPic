@@ -145,6 +145,9 @@ def generate_thumbnail(img_path: Path, thumb_path: Path) -> bool:
     try:
         thumb_path.parent.mkdir(parents=True, exist_ok=True)
         img = Image.open(img_path)
+        # 根据 EXIF 方向自动旋转，把方向信息“烘焙”到像素中
+        from PIL import ImageOps
+        img = ImageOps.exif_transpose(img)
         img.thumbnail(THUMBNAIL_SIZE, Image.Resampling.LANCZOS)
         # 统一转为 JPEG 节省空间
         if img.mode in ("RGBA", "P"):
