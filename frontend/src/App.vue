@@ -26,7 +26,7 @@
           :key="currentPhoto.path"
           :photo="currentPhoto"
           @swipe-right="onKeep"
-          @swipe-up="showDeleteConfirm"
+          @swipe-up="onDelete"
           @double-tap="onFavorite"
           @single-tap="showInfo = true"
         />
@@ -60,14 +60,6 @@
       @close="showInfo = false"
     />
 
-    <!-- 删除确认弹窗 -->
-    <ConfirmDialog
-      :visible="showDeleteDialog"
-      message="确认将此照片移入回收站？"
-      @confirm="onDeleteConfirm"
-      @cancel="showDeleteDialog = false"
-    />
-
     <!-- 设置入口（左下角齿轮） -->
     <button class="settings-btn" @click="showSettings = true">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2">
@@ -99,7 +91,6 @@ import { getRandomPhoto, favoritePhoto, deletePhoto, getStats, getSettings } fro
 import PhotoCard from './components/PhotoCard.vue'
 import StatsBar from './components/StatsBar.vue'
 import InfoPanel from './components/InfoPanel.vue'
-import ConfirmDialog from './components/ConfirmDialog.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import PhotoInfoBar from './components/PhotoInfoBar.vue'
 import ImageViewer from './components/ImageViewer.vue'
@@ -108,7 +99,6 @@ const currentPhoto = ref(null)
 const stats = ref({})
 const settings = ref({})
 const showInfo = ref(false)
-const showDeleteDialog = ref(false)
 const showSettings = ref(false)
 const showViewer = ref(false)
 const noPhotos = ref(false)
@@ -163,14 +153,8 @@ function onKeep() {
   loadStats()
 }
 
-// 删除确认
-function showDeleteConfirm() {
-  showDeleteDialog.value = true
-}
-
-// 确认删除 - 上滑
-async function onDeleteConfirm() {
-  showDeleteDialog.value = false
+// 删除 - 上滑（直接删除，可从回收站恢复）
+async function onDelete() {
   if (!currentPhoto.value) return
 
   try {
