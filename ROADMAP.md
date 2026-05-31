@@ -121,4 +121,27 @@
 
 ---
 
+## 开源准备
+
+**状态：** 待定
+
+**已完成：**
+- [x] git 仓库移除个人数据（缩略图 32440 张 + 数据库文件）
+- [x] .gitignore 排除整个 data/ 目录
+- [x] 代码中无个人照片路径、GPS 数据等隐私信息
+- [x] README.md 功能说明 + 部署文档
+- [x] ROADMAP.md 开发计划
+
+**待完成：**
+- [ ] LICENSE 文件（当前 README 写的 MIT）
+- [ ] README 补充项目截图/演示 GIF
+- [ ] README 补充完整 API 文档
+- [ ] 清理 `{backend` 历史残留目录
+- [ ] docker-compose.yml 移除 `version` 字段
+- [ ] 确认默认账户密码是否需要脱敏
+- [ ] 考虑是否需要 CONTRIBUTING.md（贡献指南）
+- [ ] 发布到 GitHub / Gitee
+
+---
+
 *最后更新：2026-06-01*
