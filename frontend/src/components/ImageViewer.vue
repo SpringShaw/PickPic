@@ -267,12 +267,12 @@ function onWheel(e) {
   right: 16px;
   top: max(12px, env(safe-area-inset-top));
   z-index: 1001;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.4);
   border: none;
   color: #fff;
-  font-size: 20px;
-  width: 36px;
-  height: 36px;
+  font-size: 16px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
