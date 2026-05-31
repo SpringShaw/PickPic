@@ -44,7 +44,7 @@
       class="view-btn"
       @click="showViewer = true"
     >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="11" cy="11" r="8"/>
         <line x1="21" y1="21" x2="16.65" y2="16.65"/>
         <line x1="11" y1="8" x2="11" y2="14"/>
@@ -302,20 +302,20 @@ onMounted(() => {
   gap: 6px;
   padding: 10px 20px;
   border-radius: 24px;
-  border: none;
-  background: rgba(0, 0, 0, 0.5);
-  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid #eee;
+  background: rgba(255, 255, 255, 0.92);
+  color: #333333;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   z-index: 50;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  letter-spacing: 0.5px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
 }
 
 .view-btn:active {
-  background: rgba(0, 0, 0, 0.7);
-  transform: translateX(-50%) scale(0.95);
+  background: #f0f0f0;
+  transform: translateX(-50%) scale(0.97);
 }
 </style>

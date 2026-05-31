@@ -39,15 +39,18 @@ function formatSize(bytes) {
   left: 50%;
   transform: translateX(-50%);
   z-index: 50;
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 10px;
-  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+  padding: 8px 16px;
   max-width: 90vw;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   pointer-events: none;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
 }
 
 .info-main {
@@ -55,7 +58,7 @@ function formatSize(bytes) {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.9);
+  color: #333333;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -67,15 +70,16 @@ function formatSize(bytes) {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 50vw;
+  color: #333333;
 }
 
 .info-sep {
-  color: rgba(255, 255, 255, 0.4);
+  color: #cccccc;
   flex-shrink: 0;
 }
 
 .info-date {
-  color: rgba(255, 255, 255, 0.7);
+  color: #888888;
   flex-shrink: 0;
 }
 
@@ -84,7 +88,7 @@ function formatSize(bytes) {
   align-items: center;
   gap: 8px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
+  color: #888888;
 }
 
 .info-tag {
@@ -92,6 +96,6 @@ function formatSize(bytes) {
 }
 
 .info-tag.location {
-  color: rgba(255, 200, 100, 0.9);
+  color: #FFB6C1;
 }
 </style>
