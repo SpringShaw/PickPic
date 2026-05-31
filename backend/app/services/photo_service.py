@@ -651,6 +651,80 @@ def get_deleted_photos() -> list:
     return result
 
 
+def get_favorites() -> list:
+    """获取收藏夹照片列表（从数据库查，含完整元数据）"""
+    db = get_db()
+    rows = db.execute(
+        """SELECT p.*, f.favorited_at as fav_time, f.file_path as fav_path 
+           FROM photos p 
+           JOIN favorites f ON p.file_path = f.original_path 
+           WHERE p.status = 'favorited' 
+           ORDER BY f.favorited_at DESC"""
+    ).fetchall()
+    db.close()
+    result = []
+    for r in rows:
+        thumb_url = None
+        if r["file_hash"]:
+            tp = _get_thumb_path(r["file_hash"])
+            if tp.exists():
+                thumb_url = f"/api/photo/thumbnail/{r['file_hash']}"
+        result.append({
+            "name": r["name"],
+            "path": r["file_path"],
+            "size": r["file_size"],
+            "date": r["date"],
+            "location": r["location"],
+            "fav_path": r["fav_path"],
+            "fav_time": r["fav_time"],
+            "file_hash": r["file_hash"],
+            "thumb_url": thumb_url,
+        })
+    return result
+
+
+def unfavorite_photo(file_path: str) -> dict:
+    """取消收藏 - 删除收藏文件，恢复照片状态为active"""
+    db = get_db()
+    fav = db.execute(
+        "SELECT file_path FROM favorites WHERE original_path = ?",
+        (file_path,)
+    ).fetchone()
+    if not fav:
+        db.close()
+        return {"success": False, "error": "该照片未收藏"}
+
+    fav_file = Path(fav["file_path"])
+    try:
+        if fav_file.exists():
+            fav_file.unlink()
+        db.execute("DELETE FROM favorites WHERE original_path = ?", (file_path,))
+        db.execute(
+            "UPDATE photos SET status='active' WHERE file_path=? AND status='favorited'",
+            (file_path,)
+        )
+        db.execute(
+            "UPDATE stats SET favorited_count = MAX(0, favorited_count - 1), last_updated = ? WHERE id = 1",
+            (time.time(),)
+        )
+        db.commit()
+        db.close()
+        return {"success": True}
+    except Exception as e:
+        db.close()
+        return {"success": False, "error": str(e)}
+
+
+def delete_favorite_photo(file_path: str) -> dict:
+    """从收藏夹删除 - 取消收藏+移入回收站"""
+    # 先取消收藏
+    result = unfavorite_photo(file_path)
+    if not result["success"]:
+        return result
+    # 再移入回收站
+    return delete_photo(file_path)
+
+
 def get_blacklist_count() -> int:
     """获取黑名单数量"""
     db = get_db()
