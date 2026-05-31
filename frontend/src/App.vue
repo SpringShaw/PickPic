@@ -16,17 +16,27 @@
       <div v-else-if="errorMsg" class="empty-state">
         <div class="empty-icon">⚠️</div>
         <p class="empty-title">{{ errorMsg }}</p>
-        <button class="retry-btn" @click="loadPhoto">重试</button>
+        <button class="retry-btn" @click="initPhotos">重试</button>
       </div>
 
-      <!-- 图片卡片 -->
+      <!-- 双层卡片 -->
       <template v-else-if="currentPhoto">
         <PhotoInfoBar :photo="currentPhoto" />
+
+        <!-- 背面卡片（下一张） -->
         <PhotoCard
-          :key="currentPhoto.path"
+          v-if="nextPhoto"
+          :key="'back-' + nextPhoto.path"
+          :photo="nextPhoto"
+          mode="back"
+        />
+
+        <!-- 前面卡片（当前） -->
+        <PhotoCard
+          :key="'front-' + currentPhoto.path"
           :photo="currentPhoto"
-          @swipe-right="onKeep"
-          @swipe-up="onDelete"
+          mode="front"
+          @leave-done="onLeaveDone"
           @double-tap="onFavorite"
           @single-tap="showInfo = true"
         />
@@ -96,6 +106,7 @@ import PhotoInfoBar from './components/PhotoInfoBar.vue'
 import ImageViewer from './components/ImageViewer.vue'
 
 const currentPhoto = ref(null)
+const nextPhoto = ref(null)
 const stats = ref({})
 const settings = ref({})
 const showInfo = ref(false)
@@ -105,16 +116,36 @@ const noPhotos = ref(false)
 const errorMsg = ref('')
 const loading = ref(false)
 
-async function loadPhoto() {
+// 预加载下一张（静默，不设 errorMsg）
+async function preloadNext() {
+  try {
+    const res = await getRandomPhoto()
+    if (res.success && res.data) {
+      nextPhoto.value = res.data
+    } else {
+      nextPhoto.value = null
+    }
+  } catch {
+    nextPhoto.value = null
+  }
+}
+
+// 加载照片（首次或需要刷新时）
+async function initPhotos() {
   if (loading.value) return
   loading.value = true
   errorMsg.value = ''
   noPhotos.value = false
+  currentPhoto.value = null
+  nextPhoto.value = null
 
   try {
+    // 先加载当前
     const res = await getRandomPhoto()
     if (res.success && res.data) {
       currentPhoto.value = res.data
+      // 预加载下一张
+      preloadNext()
     } else {
       noPhotos.value = true
     }
@@ -147,23 +178,25 @@ async function loadSettings() {
   }
 }
 
-// 保留 - 右滑
-function onKeep() {
-  loadPhoto()
-  loadStats()
-}
-
-// 删除 - 上滑（直接删除，可从回收站恢复）
-async function onDelete() {
-  if (!currentPhoto.value) return
-
-  try {
-    await deletePhoto(currentPhoto.value.path)
-    loadPhoto()
-    loadStats()
-  } catch (e) {
-    errorMsg.value = '删除失败：' + (e.response?.data?.detail || '未知错误')
+// 卡片飞出完成 → 切换到下一张
+async function onLeaveDone(direction) {
+  // 上滑删除
+  if (direction === 'up' && currentPhoto.value) {
+    try {
+      await deletePhoto(currentPhoto.value.path)
+    } catch (e) {
+      console.error('删除失败:', e)
+    }
   }
+
+  if (nextPhoto.value) {
+    currentPhoto.value = nextPhoto.value
+    nextPhoto.value = null
+    preloadNext()
+  } else {
+    await initPhotos()
+  }
+  loadStats()
 }
 
 // 收藏 - 双击
@@ -172,8 +205,6 @@ async function onFavorite() {
   try {
     await favoritePhoto(currentPhoto.value.path)
     loadStats()
-    // 收藏后自动加载下一张
-    setTimeout(() => loadPhoto(), 800)
   } catch (e) {
     console.error('收藏失败:', e)
   }
@@ -183,10 +214,11 @@ async function onFavorite() {
 function onSettingsUpdated() {
   loadSettings()
   loadStats()
+  initPhotos()
 }
 
 onMounted(() => {
-  loadPhoto()
+  initPhotos()
   loadStats()
   loadSettings()
 })

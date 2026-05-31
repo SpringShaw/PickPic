@@ -1,9 +1,10 @@
 <template>
   <div
     class="photo-card"
+    :class="{ 'card-front': mode === 'front', 'card-back': mode === 'back' }"
     ref="cardRef"
-    @touchstart="onTouchStart"
-    @touchmove="onTouchMove"
+    @touchstart.passive="onTouchStart"
+    @touchmove.passive="onTouchMove"
     @touchend="onTouchEnd"
     @mousedown="onMouseDown"
     @mousemove="onMouseMove"
@@ -17,7 +18,6 @@
       :src="imageUrl"
       :alt="photo.name"
       class="photo-img"
-      :class="{ 'transition-transform': !isDragging }"
       @load="onImageLoad"
       @error="onImageError"
       draggable="false"
@@ -34,7 +34,7 @@
 
     <!-- 滑动方向指示 -->
     <transition name="fade">
-      <div v-if="showIndicator" class="indicator" :class="indicatorClass">
+      <div v-if="showIndicator && mode === 'front'" class="indicator" :class="indicatorClass">
         {{ indicatorText }}
       </div>
     </transition>
@@ -47,19 +47,23 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { getImageUrl, getThumbnailUrl } from '../services/api'
+import { ref, computed, onUnmounted } from 'vue'
+import { getThumbnailUrl } from '../services/api'
 
 const props = defineProps({
   photo: { type: Object, required: true },
+  mode: { type: String, default: 'front' }, // 'front' | 'back'
 })
 
-const emit = defineEmits(['swipe-right', 'swipe-up', 'double-tap', 'single-tap'])
+const emit = defineEmits(['swipe-right', 'swipe-up', 'double-tap', 'single-tap', 'leave-done'])
 
 const cardRef = ref(null)
 const loading = ref(true)
 const showHeart = ref(false)
 const isDragging = ref(false)
+const isLeaving = ref(false)
+const leaveX = ref(0)
+const leaveY = ref(0)
 const startX = ref(0)
 const startY = ref(0)
 const moveX = ref(0)
@@ -70,15 +74,27 @@ const indicatorType = ref('')
 const lastTapTime = ref(0)
 const clickTimer = ref(null)
 
-// 优先使用缩略图（加载快10倍+），回退到原图
 const imageUrl = computed(() => getThumbnailUrl(props.photo))
 
 const cardStyle = computed(() => {
-  if (!isDragging.value) return {}
-  return {
-    transform: `translate(${moveX.value}px, ${moveY.value}px) rotate(${moveX.value * 0.05}deg)`,
-    opacity: Math.max(0.3, 1 - Math.abs(moveY.value) / 500),
+  if (props.mode === 'back') return {}
+
+  if (isLeaving.value) {
+    return {
+      transform: `translate(${leaveX.value}px, ${leaveY.value}px) rotate(${leaveX.value * 0.04}deg)`,
+      opacity: 0,
+      transition: 'transform 0.28s ease-out, opacity 0.22s ease-out',
+      zIndex: 20,
+    }
   }
+  if (isDragging.value) {
+    const rotate = moveX.value * 0.04
+    return {
+      transform: `translate(${moveX.value}px, ${moveY.value}px) rotate(${rotate}deg)`,
+      zIndex: 20,
+    }
+  }
+  return { zIndex: 20 }
 })
 
 const indicatorClass = computed(() => {
@@ -95,6 +111,7 @@ const indicatorText = computed(() => {
 
 // 触摸事件
 function onTouchStart(e) {
+  if (props.mode !== 'front') return
   const touch = e.touches[0]
   startX.value = touch.clientX
   startY.value = touch.clientY
@@ -103,12 +120,11 @@ function onTouchStart(e) {
 }
 
 function onTouchMove(e) {
-  if (!isDragging.value) return
+  if (!isDragging.value || props.mode !== 'front') return
   const touch = e.touches[0]
   moveX.value = touch.clientX - startX.value
   moveY.value = touch.clientY - startY.value
 
-  // 显示方向指示
   if (Math.abs(moveX.value) > 50 && moveX.value > 0) {
     showIndicator.value = true
     indicatorType.value = 'right'
@@ -120,24 +136,16 @@ function onTouchMove(e) {
   }
 }
 
-function onTouchEnd(e) {
-  if (!isDragging.value) return
+function onTouchEnd() {
+  if (!isDragging.value || props.mode !== 'front') return
   isDragging.value = false
   showIndicator.value = false
-
-  const threshold = 100
-  if (moveX.value > threshold) {
-    emit('swipe-right')
-  } else if (moveY.value < -threshold) {
-    emit('swipe-up')
-  }
-
-  moveX.value = 0
-  moveY.value = 0
+  checkSwipe()
 }
 
 // 鼠标事件（PC兼容）
 function onMouseDown(e) {
+  if (props.mode !== 'front') return
   startX.value = e.clientX
   startY.value = e.clientY
   isMouseDown.value = true
@@ -146,7 +154,7 @@ function onMouseDown(e) {
 }
 
 function onMouseMove(e) {
-  if (!isMouseDown.value) return
+  if (!isMouseDown.value || props.mode !== 'front') return
   moveX.value = e.clientX - startX.value
   moveY.value = e.clientY - startY.value
 
@@ -161,25 +169,55 @@ function onMouseMove(e) {
   }
 }
 
-function onMouseUp(e) {
-  if (!isMouseDown.value) return
+function onMouseUp() {
+  if (!isMouseDown.value || props.mode !== 'front') return
   isMouseDown.value = false
   isDragging.value = false
   showIndicator.value = false
+  checkSwipe()
+}
 
-  const threshold = 100
+function checkSwipe() {
+  const threshold = 80
   if (moveX.value > threshold) {
-    emit('swipe-right')
+    animateLeave(window.innerWidth * 1.2, moveY.value * 0.5, 'right')
   } else if (moveY.value < -threshold) {
-    emit('swipe-up')
+    animateLeave(moveX.value * 0.5, -window.innerHeight * 1.2, 'up')
+  } else {
+    // 未超过阈值 → 弹回
+    moveX.value = 0
+    moveY.value = 0
+  }
+}
+
+function animateLeave(toX, toY, direction) {
+  isLeaving.value = true
+  leaveX.value = toX
+  leaveY.value = toY
+
+  // 监听动画结束
+  const onEnd = () => {
+    if (cardRef.value) {
+      cardRef.value.removeEventListener('transitionend', onEnd)
+    }
+    emit('leave-done', direction)
   }
 
-  moveX.value = 0
-  moveY.value = 0
+  if (cardRef.value) {
+    cardRef.value.addEventListener('transitionend', onEnd, { once: true })
+  }
+
+  // 兜底定时器
+  setTimeout(() => {
+    if (isLeaving.value) {
+      emit('leave-done', direction)
+    }
+  }, 400)
 }
 
 // 双击
 function onDoubleClick(e) {
+  if (props.mode !== 'front') return
   e.preventDefault()
   showHeart.value = true
   emit('double-tap')
@@ -188,6 +226,7 @@ function onDoubleClick(e) {
 
 // 单击（带双击防抖）
 function onSingleClick(e) {
+  if (props.mode !== 'front') return
   const now = Date.now()
   if (now - lastTapTime.value < 300) return
   lastTapTime.value = now
@@ -206,6 +245,20 @@ function onImageError() {
   loading.value = false
 }
 
+// 暴露给父组件：重置状态（用于回收复用）
+function reset() {
+  isDragging.value = false
+  isLeaving.value = false
+  moveX.value = 0
+  moveY.value = 0
+  leaveX.value = 0
+  leaveY.value = 0
+  loading.value = true
+  showIndicator.value = false
+}
+
+defineExpose({ reset })
+
 onUnmounted(() => {
   if (clickTimer.value) clearTimeout(clickTimer.value)
 })
@@ -218,14 +271,25 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 0;
   user-select: none;
   -webkit-user-select: none;
-  cursor: grab;
 }
 
-.photo-card:active {
+.card-front {
+  cursor: grab;
+  z-index: 20;
+}
+
+.card-front:active {
   cursor: grabbing;
+}
+
+.card-back {
+  z-index: 10;
+  pointer-events: none;
 }
 
 .photo-img {
@@ -235,10 +299,6 @@ onUnmounted(() => {
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   pointer-events: none;
-}
-
-.transition-transform {
-  transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
 .heart-overlay {
