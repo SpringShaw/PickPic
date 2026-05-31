@@ -53,9 +53,11 @@ import { getThumbnailUrl } from '../services/api'
 const props = defineProps({
   photo: { type: Object, required: true },
   mode: { type: String, default: 'front' }, // 'front' | 'back'
+  revealing: { type: Boolean, default: false },
+  revealProgress: { type: Number, default: 0 }, // 0~1, 背面卡片渐进揭示进度
 })
 
-const emit = defineEmits(['swipe-right', 'swipe-up', 'double-tap', 'single-tap', 'leave-done'])
+const emit = defineEmits(['swipe-right', 'swipe-up', 'double-tap', 'single-tap', 'leave-start', 'leave-done', 'swipe-progress'])
 
 const cardRef = ref(null)
 const loading = ref(true)
@@ -77,7 +79,17 @@ const clickTimer = ref(null)
 const imageUrl = computed(() => getThumbnailUrl(props.photo))
 
 const cardStyle = computed(() => {
-  if (props.mode === 'back') return {}
+  if (props.mode === 'back') {
+    // 背面卡片：跟手渐进放大 0.82→1.0，cover填满
+    const p = Math.max(0, Math.min(1, props.revealProgress))
+    const scale = 0.3 + p * 0.7
+    const opacity = 0.3 + p * 0.7
+    return {
+      transform: `scale(${scale})`,
+      opacity,
+      transition: 'none',
+    }
+  }
 
   if (isLeaving.value) {
     return {
@@ -124,6 +136,7 @@ function onTouchMove(e) {
   const touch = e.touches[0]
   moveX.value = touch.clientX - startX.value
   moveY.value = touch.clientY - startY.value
+  emitSwipeProgress()
 
   if (Math.abs(moveX.value) > 50 && moveX.value > 0) {
     showIndicator.value = true
@@ -157,6 +170,7 @@ function onMouseMove(e) {
   if (!isMouseDown.value || props.mode !== 'front') return
   moveX.value = e.clientX - startX.value
   moveY.value = e.clientY - startY.value
+  emitSwipeProgress()
 
   if (Math.abs(moveX.value) > 50 && moveX.value > 0) {
     showIndicator.value = true
@@ -177,6 +191,16 @@ function onMouseUp() {
   checkSwipe()
 }
 
+function emitSwipeProgress() {
+  // 右滑进度：moveX / threshold (0~1)
+  // 上滑进度：|moveY| / threshold (0~1)
+  const threshold = 80
+  const xProgress = Math.max(0, moveX.value / threshold)
+  const yProgress = Math.max(0, -moveY.value / threshold)
+  const progress = Math.min(1, Math.max(xProgress, yProgress))
+  emit('swipe-progress', progress)
+}
+
 function checkSwipe() {
   const threshold = 80
   if (moveX.value > threshold) {
@@ -194,6 +218,7 @@ function animateLeave(toX, toY, direction) {
   isLeaving.value = true
   leaveX.value = toX
   leaveY.value = toY
+  emit('leave-start', direction)
 
   // 监听动画结束
   const onEnd = () => {
@@ -219,17 +244,25 @@ function animateLeave(toX, toY, direction) {
 function onDoubleClick(e) {
   if (props.mode !== 'front') return
   e.preventDefault()
+  lastTapTime.value = Date.now() // 标记双击时间，阻止单击
+  if (clickTimer.value) {
+    clearTimeout(clickTimer.value)
+    clickTimer.value = null
+  }
   showHeart.value = true
   emit('double-tap')
-  setTimeout(() => { showHeart.value = false }, 1000)
+  // 爱心动画后飞出
+  setTimeout(() => {
+    showHeart.value = false
+    animateLeave(window.innerWidth * 1.2, 0, 'favorite')
+  }, 800)
 }
 
 // 单击（带双击防抖）
 function onSingleClick(e) {
   if (props.mode !== 'front') return
-  const now = Date.now()
-  if (now - lastTapTime.value < 300) return
-  lastTapTime.value = now
+  // 双击后 400ms 内忽略单击
+  if (lastTapTime.value && Date.now() - lastTapTime.value < 400) return
 
   if (clickTimer.value) clearTimeout(clickTimer.value)
   clickTimer.value = setTimeout(() => {
@@ -290,6 +323,12 @@ onUnmounted(() => {
 .card-back {
   z-index: 10;
   pointer-events: none;
+}
+
+.card-back .photo-img {
+  max-width: 92vw;
+  max-height: 78vh;
+  object-fit: contain;
 }
 
 .photo-img {
