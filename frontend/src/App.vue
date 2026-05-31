@@ -20,21 +20,38 @@
       </div>
 
       <!-- 图片卡片 -->
-      <PhotoCard
-        v-else-if="currentPhoto"
-        :key="currentPhoto.path"
-        :photo="currentPhoto"
-        @swipe-right="onKeep"
-        @swipe-up="showDeleteConfirm"
-        @double-tap="onFavorite"
-        @single-tap="showInfo = true"
-      />
+      <template v-else-if="currentPhoto">
+        <PhotoInfoBar :photo="currentPhoto" />
+        <PhotoCard
+          :key="currentPhoto.path"
+          :photo="currentPhoto"
+          @swipe-right="onKeep"
+          @swipe-up="showDeleteConfirm"
+          @double-tap="onFavorite"
+          @single-tap="showInfo = true"
+        />
+      </template>
     </div>
 
     <!-- 底部提示 -->
     <div class="bottom-hint">
       上滑删除 · 双击收藏 · 右滑保留
     </div>
+
+    <!-- 查看原图按钮（底部居中） -->
+    <button
+      v-if="currentPhoto && !noPhotos && !errorMsg"
+      class="view-btn"
+      @click="showViewer = true"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        <line x1="11" y1="8" x2="11" y2="14"/>
+        <line x1="8" y1="11" x2="14" y2="11"/>
+      </svg>
+      <span>放大查看</span>
+    </button>
 
     <!-- 图片信息弹窗 -->
     <InfoPanel
@@ -59,6 +76,13 @@
       </svg>
     </button>
 
+    <!-- 图片查看器 -->
+    <ImageViewer
+      :visible="showViewer"
+      :photo="currentPhoto || {}"
+      @close="showViewer = false"
+    />
+
     <!-- 设置弹窗 -->
     <SettingsPanel
       :visible="showSettings"
@@ -77,6 +101,8 @@ import StatsBar from './components/StatsBar.vue'
 import InfoPanel from './components/InfoPanel.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
+import PhotoInfoBar from './components/PhotoInfoBar.vue'
+import ImageViewer from './components/ImageViewer.vue'
 
 const currentPhoto = ref(null)
 const stats = ref({})
@@ -84,6 +110,7 @@ const settings = ref({})
 const showInfo = ref(false)
 const showDeleteDialog = ref(false)
 const showSettings = ref(false)
+const showViewer = ref(false)
 const noPhotos = ref(false)
 const errorMsg = ref('')
 const loading = ref(false)
@@ -262,5 +289,33 @@ onMounted(() => {
 
 .settings-btn:active {
   background: #f0f0f0;
+}
+
+.view-btn {
+  position: fixed;
+  bottom: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: max(50px, calc(env(safe-area-inset-bottom) + 22px));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: 24px;
+  border: none;
+  background: rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  z-index: 50;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  letter-spacing: 0.5px;
+}
+
+.view-btn:active {
+  background: rgba(0, 0, 0, 0.7);
+  transform: translateX(-50%) scale(0.95);
 }
 </style>

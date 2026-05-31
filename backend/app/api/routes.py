@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
 from pathlib import Path
 
@@ -6,7 +6,8 @@ from app.services.photo_service import (
     get_random_photo, add_to_blacklist, favorite_photo, delete_photo,
     get_stats, get_blacklist_count, reset_blacklist, reset_stats,
     get_settings, update_setting, get_photo_count, get_directory_info,
-    _to_container_path
+    get_scan_status, scan_and_cache, get_cached_photo_count,
+    _to_container_path, _get_thumb_path
 )
 from app.config import BLACKLIST_DURATION_OPTIONS, NAS_HOST_DIR
 
@@ -37,19 +38,16 @@ async def random_photo():
 @router.get("/photo/image")
 async def serve_image(path: str):
     """提供图片文件"""
-    # 前端传的是NAS路径，转为容器路径
     container_path = _to_container_path(path)
     img_path = Path(container_path)
     if not img_path.exists():
         raise HTTPException(status_code=404, detail="图片不存在")
 
-    # 安全检查：只允许访问 /nas/host 下的文件
     try:
         img_path.resolve().relative_to(NAS_HOST_DIR.resolve())
     except ValueError:
         raise HTTPException(status_code=403, detail="无权访问该路径")
 
-    # MIME类型映射
     suffix = img_path.suffix.lower()
     mime_map = {
         ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
@@ -59,14 +57,21 @@ async def serve_image(path: str):
         ".tiff": "image/tiff",
     }
     media_type = mime_map.get(suffix, "application/octet-stream")
-
     return FileResponse(str(img_path), media_type=media_type)
+
+
+@router.get("/photo/thumbnail/{file_hash}")
+async def serve_thumbnail(file_hash: str):
+    """提供缩略图文件"""
+    thumb_path = _get_thumb_path(file_hash)
+    if not thumb_path.exists():
+        raise HTTPException(status_code=404, detail="缩略图不存在")
+    return FileResponse(str(thumb_path), media_type="image/jpeg")
 
 
 @router.post("/photo/favorite")
 async def favorite(file_path: str):
     """收藏图片"""
-    # 前端传的是NAS路径，转为容器路径
     result = favorite_photo(_to_container_path(file_path))
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -76,7 +81,6 @@ async def favorite(file_path: str):
 @router.post("/photo/delete")
 async def delete(file_path: str):
     """删除图片（移入回收站）"""
-    # 前端传的是NAS路径，转为容器路径
     result = delete_photo(_to_container_path(file_path))
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -89,6 +93,7 @@ async def stats():
     data = get_stats()
     data["blacklist_count"] = get_blacklist_count()
     data["total_photos"] = get_photo_count()
+    data["cached_photos"] = get_cached_photo_count()
     return {"success": True, "data": data}
 
 
@@ -130,3 +135,17 @@ async def check_directory(path: str):
     """验证目录路径是否可用"""
     info = get_directory_info(path)
     return {"success": True, "data": info}
+
+
+@router.post("/scan")
+async def api_scan(background_tasks: BackgroundTasks, force: bool = False):
+    """触发照片扫描（后台执行）"""
+    background_tasks.add_task(scan_and_cache, force=force)
+    return {"success": True, "message": "扫描已启动，请查看状态"}
+
+
+@router.get("/scan/status")
+async def api_scan_status():
+    """获取扫描状态"""
+    status = get_scan_status()
+    return {"success": True, "data": status}

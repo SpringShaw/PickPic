@@ -24,8 +24,8 @@
             <span class="info-value">{{ formatSize(photo.file_size) }}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">GPS 位置</span>
-            <span class="info-value">{{ photo.gps ? `${photo.gps.lat}, ${photo.gps.lng}` : '无GPS数据' }}</span>
+            <span class="info-label">位置</span>
+            <span class="info-value">{{ photo.location || (photo.gps ? `${photo.gps.lat}, ${photo.gps.lng}` : '无GPS数据') }}</span>
           </div>
           <div class="info-row">
             <span class="info-label">原始路径</span>

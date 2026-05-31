@@ -54,6 +54,23 @@
             {{ saving ? '保存中...' : '保存目录配置' }}
           </button>
 
+          <!-- 照片缓存扫描 -->
+          <div class="setting-group">
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">🗄️ 照片缓存</div>
+                <div class="setting-desc">{{ scanStatusText }}</div>
+              </div>
+              <button
+                class="action-btn scan-btn"
+                @click="triggerScan"
+                :disabled="scanning"
+              >
+                {{ scanning ? '扫描中...' : '重新扫描' }}
+              </button>
+            </div>
+          </div>
+
           <div class="divider"></div>
 
           <!-- 黑名单时长 -->
@@ -128,8 +145,8 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
-import { updateSetting as apiUpdateSetting, resetBlacklist, resetStats, getSettings } from '../services/api'
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
+import { updateSetting as apiUpdateSetting, resetBlacklist, resetStats, getSettings, triggerScan as apiTriggerScan, getScanStatus } from '../services/api'
 import ConfirmDialog from './ConfirmDialog.vue'
 
 const props = defineProps({
@@ -152,6 +169,65 @@ const dirStatus = ref({
   star: { text: '', class: '' },
   recycle: { text: '', class: '' },
 })
+
+const scanning = ref(false)
+const scanStatus = ref({ status: 'idle', total: 0, processed: 0, new_count: 0 })
+let scanTimer = null
+
+const scanStatusText = computed(() => {
+  const s = scanStatus.value
+  if (s.status === 'scanning') {
+    return `扫描中... ${s.processed}/${s.total} (新增 ${s.new_count})`
+  }
+  if (s.status === 'idle' && s.total > 0) {
+    return `已缓存 ${s.total} 张照片 · 新增 ${s.new_count}`
+  }
+  return '未扫描（启动时自动扫描）'
+})
+
+async function triggerScan() {
+  scanning.value = true
+  try {
+    await apiTriggerScan(true)
+    // 开始轮询状态
+    scanTimer = setInterval(async () => {
+      try {
+        const res = await getScanStatus()
+        if (res.success) {
+          scanStatus.value = res.data
+          if (res.data.status !== 'scanning') {
+            clearInterval(scanTimer)
+            scanTimer = null
+            scanning.value = false
+            emit('updated')
+          }
+        }
+      } catch (e) {
+        clearInterval(scanTimer)
+        scanTimer = null
+        scanning.value = false
+      }
+    }, 2000)
+  } catch (e) {
+    scanning.value = false
+  }
+}
+
+async function loadScanStatus() {
+  try {
+    const res = await getScanStatus()
+    if (res.success) {
+      scanStatus.value = res.data
+      if (res.data.status === 'scanning') {
+        scanning.value = true
+        triggerScan() // 继续轮询
+      }
+    }
+  } catch (e) {}
+}
+
+onMounted(() => { loadScanStatus() })
+onUnmounted(() => { if (scanTimer) clearInterval(scanTimer) })
 
 const durationOptions = [
   { label: '1年', value: '1y' },
@@ -443,6 +519,21 @@ async function handleResetStats() {
 
 .action-btn.danger:active {
   background: #FFF0F0;
+}
+
+.scan-btn {
+  width: auto;
+  padding: 6px 16px;
+  margin: 0;
+  background: #007AFF;
+  color: #fff;
+  font-size: 12px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.scan-btn:disabled {
+  opacity: 0.5;
 }
 
 .footer-info {

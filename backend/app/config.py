@@ -31,3 +31,7 @@ SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".bm
 
 # 重复图片过滤
 ENABLE_DUPLICATE_FILTER = os.getenv("ENABLE_DUPLICATE_FILTER", "true").lower() == "true"
+
+# 缩略图配置
+THUMBNAIL_DIR = Path(os.getenv("THUMBNAIL_DIR", "/app/data/thumbnails"))
+THUMBNAIL_SIZE = (400, 400)  # 缩略图最大尺寸

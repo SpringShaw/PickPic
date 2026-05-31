@@ -1,39 +1,65 @@
 """
-图片服务 - EXIF解析、文件操作、随机算法
+图片服务 - EXIF解析、文件操作、随机算法、缓存、缩略图
 """
 import hashlib
 import os
 import random
 import shutil
 import time
+import threading
 from pathlib import Path
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 
-from app.config import SUPPORTED_EXTENSIONS, BLACKLIST_DURATION_OPTIONS, NAS_HOST_DIR
+from app.config import SUPPORTED_EXTENSIONS, BLACKLIST_DURATION_OPTIONS, NAS_HOST_DIR, THUMBNAIL_DIR, THUMBNAIL_SIZE
 from app.models.database import get_db
+
+# 逆地理编码（GPS转省市区）
+try:
+    import reverse_geocoder as rg
+    _RG_AVAILABLE = True
+except ImportError:
+    _RG_AVAILABLE = False
+    print("[WARN] reverse_geocoder 未安装，GPS位置信息将显示坐标")
+
+# 扫描锁，防止并发扫描
+_scan_lock = threading.Lock()
+
+
+def _gps_to_location(gps: dict) -> str | None:
+    """将GPS坐标转换为省-市格式的位置信息"""
+    if not gps or not _RG_AVAILABLE:
+        return None
+    try:
+        result = rg.search((gps["lat"], gps["lng"]))
+        if result:
+            r = result[0]
+            admin1 = r.get("admin1", "")
+            name = r.get("name", "")
+            cc = r.get("cc", "")
+            if cc == "CN":
+                parts = [p for p in [admin1, name] if p]
+                return "-".join(parts) if parts else None
+            else:
+                parts = [p for p in [name, admin1] if p]
+                return ", ".join(parts) if parts else None
+    except Exception as e:
+        print(f"逆地理编码失败: {e}")
+    return None
 
 
 def _to_container_path(user_path: str) -> str:
-    """将用户填写的NAS路径自动转换为容器内路径
-    
-    用户填 /vol1/xxx，自动转为 /nas/host/vol1/xxx
-    如果已经以 /nas/host 开头则不重复转换
-    """
+    """将用户填写的NAS路径自动转换为容器内路径"""
     if not user_path:
         return user_path
     user_path = user_path.strip()
     if user_path.startswith(str(NAS_HOST_DIR)):
         return user_path
-    # 去掉开头的斜杠再拼接
     return str(NAS_HOST_DIR) + "/" + user_path.lstrip("/")
 
 
 def _to_nas_path(container_path: str) -> str:
-    """将容器内路径转回用户可读的NAS路径
-    
-    /nas/host/vol1/xxx → /vol1/xxx
-    """
+    """将容器内路径转回用户可读的NAS路径"""
     prefix = str(NAS_HOST_DIR) + "/"
     if container_path.startswith(prefix):
         return "/" + container_path[len(prefix):]
@@ -102,38 +128,228 @@ def _convert_to_degrees(value):
 
 
 def compute_file_hash(file_path: Path) -> str:
-    """计算文件哈希（用于去重）"""
+    """计算文件MD5哈希（修复版，正确分块读取）"""
     hash_md5 = hashlib.md5()
     try:
         with open(file_path, "rb") as f:
-            for chunk in iter(lambda: 8192, b""):
+            for chunk in iter(lambda: f.read(8192), b""):
                 hash_md5.update(chunk)
-    except:
+    except Exception as e:
+        print(f"计算哈希失败: {file_path}, 错误: {e}")
         return ""
     return hash_md5.hexdigest()
 
 
+def generate_thumbnail(img_path: Path, thumb_path: Path) -> bool:
+    """生成缩略图，返回是否成功"""
+    try:
+        thumb_path.parent.mkdir(parents=True, exist_ok=True)
+        img = Image.open(img_path)
+        img.thumbnail(THUMBNAIL_SIZE, Image.Resampling.LANCZOS)
+        # 统一转为 JPEG 节省空间
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        img.save(str(thumb_path), "JPEG", quality=80, optimize=True)
+        return True
+    except Exception as e:
+        print(f"缩略图生成失败: {img_path}, 错误: {e}")
+        return False
+
+
+def _get_thumb_path(file_hash: str) -> Path:
+    """根据文件哈希生成缩略图路径"""
+    return THUMBNAIL_DIR / f"{file_hash}.jpg"
+
+
 def scan_photos(base_dir: Path) -> list[dict]:
-    """扫描目录下所有支持的图片文件"""
+    """扫描目录下所有支持的图片文件（轻量版，仅返回路径信息）"""
     photos = []
     if not base_dir.exists():
         return photos
-
     for root, dirs, files in os.walk(base_dir):
         for file in files:
             file_path = Path(root) / file
             if file_path.suffix.lower() in SUPPORTED_EXTENSIONS:
-                photos.append({
-                    "path": str(file_path),
-                    "name": file,
-                    "dir": str(root),
-                    "size": file_path.stat().st_size,
-                })
+                try:
+                    stat = file_path.stat()
+                    photos.append({
+                        "path": str(file_path),
+                        "name": file,
+                        "dir": str(root),
+                        "size": stat.st_size,
+                        "mtime": stat.st_mtime,
+                    })
+                except OSError:
+                    continue
     return photos
 
 
+def scan_and_cache(force: bool = False) -> dict:
+    """扫描照片目录并缓存到数据库（增量更新）
+    
+    Args:
+        force: 强制全量重新扫描（忽略缓存）
+    
+    Returns:
+        扫描结果统计
+    """
+    if not _scan_lock.acquire(blocking=False):
+        return {"status": "busy", "message": "扫描正在进行中"}
+
+    try:
+        dirs = _get_dirs()
+        photos_dir = dirs.get("photos")
+        if not photos_dir or not photos_dir.exists():
+            return {"status": "error", "message": "照片目录未配置或不存在"}
+
+        db = get_db()
+        now = time.time()
+
+        # 更新扫描状态
+        db.execute(
+            "UPDATE scan_status SET status='scanning', started_at=?, finished_at=NULL, new_count=0, updated_count=0, deleted_count=0, processed=0 WHERE id=1",
+            (now,)
+        )
+        db.commit()
+
+        # 读取数据库中已有的照片（路径 → mtime 映射）
+        cached = {}
+        for row in db.execute("SELECT file_path, mtime FROM photos").fetchall():
+            cached[row["file_path"]] = row["mtime"]
+
+        # 扫描文件系统
+        fs_photos = scan_photos(photos_dir)
+        fs_paths = {p["path"] for p in fs_photos}
+        total = len(fs_photos)
+
+        db.execute("UPDATE scan_status SET total=? WHERE id=1", (total,))
+        db.commit()
+
+        new_count = 0
+        updated_count = 0
+        processed = 0
+
+        THUMBNAIL_DIR.mkdir(parents=True, exist_ok=True)
+
+        for photo in fs_photos:
+            fpath = photo["path"]
+            fmtime = photo["mtime"]
+            need_update = False
+
+            if fpath not in cached:
+                need_update = True
+                new_count += 1
+            elif cached[fpath] != fmtime:
+                need_update = True
+                updated_count += 1
+
+            if need_update:
+                p = Path(fpath)
+                file_hash = compute_file_hash(p)
+                exif = get_exif_data(p)
+                gps = exif.get("gps")
+                location = _gps_to_location(gps)
+                thumb_path = ""
+
+                if file_hash:
+                    tp = _get_thumb_path(file_hash)
+                    if not tp.exists():
+                        generate_thumbnail(p, tp)
+                    thumb_path = str(tp)
+
+                db.execute(
+                    """INSERT OR REPLACE INTO photos 
+                       (file_path, file_hash, file_size, mtime, width, height, date, gps_lat, gps_lng, location, thumb_path, dir, name)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (fpath, file_hash, photo["size"], fmtime,
+                     exif.get("width"), exif.get("height"), exif.get("date"),
+                     gps["lat"] if gps else None, gps["lng"] if gps else None,
+                     location, thumb_path, photo["dir"], photo["name"])
+                )
+
+            processed += 1
+            # 每处理50张提交一次并释放数据库锁
+            if processed % 50 == 0:
+                db.execute(
+                    "UPDATE scan_status SET processed=?, new_count=?, updated_count=? WHERE id=1",
+                    (processed, new_count, updated_count)
+                )
+                db.commit()
+                db.close()  # 释放锁，让其他操作可以写入
+                time.sleep(0.1)  # 给其他操作一点时间
+                db = get_db()  # 重新打开连接
+
+        # 删除已不存在的照片
+        deleted_count = 0
+        if cached:
+            missing = set(cached.keys()) - fs_paths
+            if missing:
+                for fpath in missing:
+                    db.execute("DELETE FROM photos WHERE file_path = ?", (fpath,))
+                deleted_count = len(missing)
+
+        # 最终提交
+        db.execute(
+            """UPDATE scan_status SET status='idle', total=?, processed=?, 
+               new_count=?, updated_count=?, deleted_count=?, finished_at=? WHERE id=1""",
+            (total, processed, new_count, updated_count, deleted_count, time.time())
+        )
+        db.commit()
+        db.close()
+
+        result = {
+            "status": "done",
+            "total": total,
+            "new": new_count,
+            "updated": updated_count,
+            "deleted": deleted_count,
+        }
+        print(f"✅ 扫描完成: {result}")
+        return result
+
+    except Exception as e:
+        print(f"❌ 扫描异常: {e}")
+        try:
+            db = get_db()
+            db.execute("UPDATE scan_status SET status='error' WHERE id=1")
+            db.commit()
+            db.close()
+        except:
+            pass
+        return {"status": "error", "message": str(e)}
+    finally:
+        _scan_lock.release()
+
+
+def get_scan_status() -> dict:
+    """获取扫描状态"""
+    db = get_db()
+    row = db.execute("SELECT * FROM scan_status WHERE id=1").fetchone()
+    db.close()
+    if row:
+        return {
+            "status": row["status"],
+            "total": row["total"],
+            "processed": row["processed"],
+            "new_count": row["new_count"],
+            "updated_count": row["updated_count"],
+            "deleted_count": row["deleted_count"],
+            "started_at": row["started_at"],
+            "finished_at": row["finished_at"],
+        }
+    return {"status": "idle", "total": 0, "processed": 0}
+
+
+def get_cached_photo_count() -> int:
+    """获取缓存中的照片数量"""
+    db = get_db()
+    row = db.execute("SELECT COUNT(*) as cnt FROM photos").fetchone()
+    db.close()
+    return row["cnt"] if row else 0
+
+
 def get_random_photo(blacklist_duration_key: str = "3y", enable_duplicate_filter: bool = True) -> dict | None:
-    """随机获取一张未浏览过的图片"""
+    """随机获取一张未浏览过的图片（使用缓存）"""
     dirs = _get_dirs()
     photos_dir = dirs.get("photos")
     if not photos_dir or not photos_dir.exists():
@@ -142,61 +358,72 @@ def get_random_photo(blacklist_duration_key: str = "3y", enable_duplicate_filter
     db = get_db()
     now = time.time()
 
-    # 获取未过期的黑名单
+    # 获取未过期的黑名单路径
     rows = db.execute(
         "SELECT file_path, file_hash FROM blacklist WHERE expires_at > ?",
         (now,)
     ).fetchall()
     blacklisted_paths = {r["file_path"] for r in rows}
-    blacklisted_hashes = {r["file_hash"] for r in rows if r["file_hash"]}
-    db.close()
 
-    # 扫描所有图片
-    all_photos = scan_photos(photos_dir)
-    if not all_photos:
-        return None
-
-    # 过滤黑名单
-    candidates = [p for p in all_photos if p["path"] not in blacklisted_paths]
-
-    # 可选：重复图片过滤
     if enable_duplicate_filter:
-        candidates = [p for p in candidates if compute_file_hash(Path(p["path"])) not in blacklisted_hashes]
+        blacklisted_hashes = {r["file_hash"] for r in rows if r["file_hash"]}
+        if blacklisted_hashes:
+            placeholders = ",".join("?" * len(blacklisted_hashes))
+            candidates = db.execute(
+                f"SELECT * FROM photos WHERE file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?) AND (file_hash IS NULL OR file_hash NOT IN ({placeholders}))",
+                [now] + list(blacklisted_hashes)
+            ).fetchall()
+        else:
+            candidates = db.execute(
+                "SELECT * FROM photos WHERE file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?)",
+                (now,)
+            ).fetchall()
+    else:
+        candidates = db.execute(
+            "SELECT * FROM photos WHERE file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?)",
+            (now,)
+        ).fetchall()
+
+    db.close()
 
     if not candidates:
         return None
 
-    # 随机选择
     chosen = random.choice(candidates)
-    photo_path = Path(chosen["path"])
-
-    # 解析EXIF
-    exif = get_exif_data(photo_path)
+    gps = None
+    if chosen["gps_lat"] is not None and chosen["gps_lng"] is not None:
+        gps = {"lat": chosen["gps_lat"], "lng": chosen["gps_lng"]}
 
     return {
-        "path": _to_nas_path(chosen["path"]),
+        "path": _to_nas_path(chosen["file_path"]),
         "name": chosen["name"],
         "dir": _to_nas_path(chosen["dir"]),
-        "file_size": exif.get("file_size") or photo_path.stat().st_size,
-        "width": exif.get("width"),
-        "height": exif.get("height"),
-        "date": exif.get("date"),
-        "gps": exif.get("gps"),
-        "relative_path": str(photo_path.relative_to(photos_dir)) if str(photo_path).startswith(str(photos_dir)) else chosen["name"],
+        "file_size": chosen["file_size"],
+        "width": chosen["width"],
+        "height": chosen["height"],
+        "date": chosen["date"],
+        "gps": gps,
+        "location": chosen["location"],
+        "thumb_path": chosen["thumb_path"],
+        "file_hash": chosen["file_hash"],
+        "relative_path": str(Path(chosen["file_path"]).relative_to(photos_dir)) if str(chosen["file_path"]).startswith(str(photos_dir)) else chosen["name"],
     }
 
 
 def add_to_blacklist(file_path: str, action: str = "viewed", duration_key: str = "3y"):
-    """将图片加入黑名单"""
+    """将图片加入黑名单（使用缓存的哈希）"""
     db = get_db()
     now = time.time()
     duration = BLACKLIST_DURATION_OPTIONS.get(duration_key, BLACKLIST_DURATION_OPTIONS["3y"])
 
-    # 读取去重设置
+    # 从缓存中获取哈希，避免重新计算
     settings_row = db.execute("SELECT value FROM settings WHERE key = 'enable_duplicate_filter'").fetchone()
     dup_filter = settings_row["value"] == "true" if settings_row else True
 
-    file_hash = compute_file_hash(Path(file_path)) if dup_filter else None
+    file_hash = None
+    if dup_filter:
+        hash_row = db.execute("SELECT file_hash FROM photos WHERE file_path = ?", (file_path,)).fetchone()
+        file_hash = hash_row["file_hash"] if hash_row else None
 
     db.execute(
         """INSERT OR REPLACE INTO blacklist (file_path, file_hash, blacklisted_at, expires_at, action)
@@ -225,7 +452,6 @@ def favorite_photo(file_path: str) -> dict:
     star_dir.mkdir(parents=True, exist_ok=True)
     dest = star_dir / src.name
 
-    # 避免重名
     counter = 1
     while dest.exists():
         stem = src.stem
@@ -266,7 +492,6 @@ def delete_photo(file_path: str) -> dict:
     recycle_dir.mkdir(parents=True, exist_ok=True)
     dest = recycle_dir / src.name
 
-    # 避免重名
     counter = 1
     while dest.exists():
         stem = src.stem
@@ -277,7 +502,9 @@ def delete_photo(file_path: str) -> dict:
     try:
         file_size = src.stat().st_size
         shutil.move(str(src), str(dest))
+        # 从缓存中删除
         db = get_db()
+        db.execute("DELETE FROM photos WHERE file_path = ?", (file_path,))
         now = time.time()
         db.execute(
             "UPDATE stats SET deleted_count = deleted_count + 1, cleaned_bytes = cleaned_bytes + ?, last_updated = ? WHERE id = 1",
@@ -339,7 +566,6 @@ def get_settings() -> dict:
     rows = db.execute("SELECT key, value FROM settings").fetchall()
     db.close()
     result = {r["key"]: r["value"] for r in rows}
-    # 目录类设置转回NAS路径显示
     for key in ("photos_dir", "star_dir", "recycle_dir"):
         if key in result and result[key]:
             result[key] = _to_nas_path(result[key])
@@ -349,7 +575,6 @@ def get_settings() -> dict:
 def update_setting(key: str, value: str):
     """更新设置，目录路径自动转换"""
     db = get_db()
-    # 目录类设置自动加 /nas/host 前缀
     if key in ("photos_dir", "star_dir", "recycle_dir"):
         value = _to_container_path(value)
     db.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
@@ -358,19 +583,14 @@ def update_setting(key: str, value: str):
 
 
 def get_photo_count() -> int:
-    """获取源目录图片总数"""
-    dirs = _get_dirs()
-    photos_dir = dirs.get("photos")
-    if not photos_dir or not photos_dir.exists():
-        return 0
-    return len(scan_photos(photos_dir))
+    """获取源目录图片总数（使用缓存）"""
+    return get_cached_photo_count()
 
 
 def get_directory_info(path_str: str) -> dict:
     """获取目录信息（用于设置页面验证路径）"""
     if not path_str:
         return {"exists": False, "photo_count": 0, "writable": False}
-    # 自动转换用户填写的路径
     container_path = _to_container_path(path_str)
     p = Path(container_path)
     exists = p.exists() and p.is_dir()

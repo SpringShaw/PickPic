@@ -11,9 +11,30 @@ export async function getRandomPhoto() {
   return res.data
 }
 
-// 获取图片URL
+// 获取图片URL（原图）
 export function getImageUrl(filePath) {
   return `/api/photo/image?path=${encodeURIComponent(filePath)}`
+}
+
+// 获取缩略图URL（优先使用缩略图，更快）
+export function getThumbnailUrl(photo) {
+  if (photo.file_hash) {
+    return `/api/photo/thumbnail/${photo.file_hash}`
+  }
+  // 回退到原图
+  return getImageUrl(photo.path)
+}
+
+// 触发照片扫描
+export async function triggerScan(force = false) {
+  const res = await api.post('/scan', null, { params: { force } })
+  return res.data
+}
+
+// 获取扫描状态
+export async function getScanStatus() {
+  const res = await api.get('/scan/status')
+  return res.data
 }
 
 // 收藏图片

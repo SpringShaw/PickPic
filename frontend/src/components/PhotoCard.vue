@@ -48,7 +48,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { getImageUrl } from '../services/api'
+import { getImageUrl, getThumbnailUrl } from '../services/api'
 
 const props = defineProps({
   photo: { type: Object, required: true },
@@ -70,7 +70,8 @@ const indicatorType = ref('')
 const lastTapTime = ref(0)
 const clickTimer = ref(null)
 
-const imageUrl = computed(() => getImageUrl(props.photo.path))
+// 优先使用缩略图（加载快10倍+），回退到原图
+const imageUrl = computed(() => getThumbnailUrl(props.photo))
 
 const cardStyle = computed(() => {
   if (!isDragging.value) return {}

@@ -3,3 +3,4 @@ uvicorn==0.34.0
 Pillow==11.1.0
 pillow-heif==0.21.0
 python-multipart==0.0.20
+reverse_geocoder==1.5.1
