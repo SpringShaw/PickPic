@@ -439,7 +439,7 @@ def add_to_blacklist(file_path: str, action: str = "viewed", duration_key: str =
 
 
 def favorite_photo(file_path: str) -> dict:
-    """收藏图片 - 复制到收藏目录"""
+    """收藏图片 - 复制到收藏目录（去重，已收藏则跳过）"""
     dirs = _get_dirs()
     star_dir = dirs.get("star")
     if not star_dir:
@@ -449,19 +449,26 @@ def favorite_photo(file_path: str) -> dict:
     if not src.exists():
         return {"success": False, "error": "文件不存在"}
 
+    # 去重：检查是否已收藏过（通过 original_path 查询）
+    db = get_db()
+    existing = db.execute(
+        "SELECT file_path FROM favorites WHERE original_path = ?",
+        (file_path,)
+    ).fetchone()
+    if existing:
+        db.close()
+        return {"success": True, "dest": existing["file_path"], "message": "已收藏过"}
+
     star_dir.mkdir(parents=True, exist_ok=True)
     dest = star_dir / src.name
 
     counter = 1
     while dest.exists():
-        stem = src.stem
-        suffix = src.suffix
-        dest = star_dir / f"{stem}_{counter}{suffix}"
+        dest = star_dir / f"{src.stem}_{counter}{src.suffix}"
         counter += 1
 
     try:
         shutil.copy2(str(src), str(dest))
-        db = get_db()
         now = time.time()
         db.execute(
             "INSERT OR REPLACE INTO favorites (file_path, original_path, favorited_at) VALUES (?, ?, ?)",

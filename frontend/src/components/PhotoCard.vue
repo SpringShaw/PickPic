@@ -53,9 +53,10 @@ import { getThumbnailUrl } from '../services/api'
 const props = defineProps({
   photo: { type: Object, required: true },
   mode: { type: String, default: 'front' }, // 'front' | 'back'
+  revealing: { type: Boolean, default: false }, // back card: true when front is leaving
 })
 
-const emit = defineEmits(['swipe-right', 'swipe-up', 'double-tap', 'single-tap', 'leave-done'])
+const emit = defineEmits(['swipe-right', 'swipe-up', 'double-tap', 'single-tap', 'leave-start', 'leave-done'])
 
 const cardRef = ref(null)
 const loading = ref(true)
@@ -77,7 +78,13 @@ const clickTimer = ref(null)
 const imageUrl = computed(() => getThumbnailUrl(props.photo))
 
 const cardStyle = computed(() => {
-  if (props.mode === 'back') return {}
+  if (props.mode === 'back') {
+    // 背面卡片：cover填满 + 初始放大，revealing时缩回正常
+    return {
+      transform: props.revealing ? 'scale(1)' : 'scale(1.12)',
+      transition: props.revealing ? 'transform 0.35s ease-out' : 'none',
+    }
+  }
 
   if (isLeaving.value) {
     return {
@@ -194,6 +201,7 @@ function animateLeave(toX, toY, direction) {
   isLeaving.value = true
   leaveX.value = toX
   leaveY.value = toY
+  emit('leave-start', direction)
 
   // 监听动画结束
   const onEnd = () => {
@@ -219,17 +227,25 @@ function animateLeave(toX, toY, direction) {
 function onDoubleClick(e) {
   if (props.mode !== 'front') return
   e.preventDefault()
+  lastTapTime.value = Date.now() // 标记双击时间，阻止单击
+  if (clickTimer.value) {
+    clearTimeout(clickTimer.value)
+    clickTimer.value = null
+  }
   showHeart.value = true
   emit('double-tap')
-  setTimeout(() => { showHeart.value = false }, 1000)
+  // 爱心动画后飞出
+  setTimeout(() => {
+    showHeart.value = false
+    animateLeave(window.innerWidth * 1.2, 0, 'favorite')
+  }, 800)
 }
 
 // 单击（带双击防抖）
 function onSingleClick(e) {
   if (props.mode !== 'front') return
-  const now = Date.now()
-  if (now - lastTapTime.value < 300) return
-  lastTapTime.value = now
+  // 双击后 400ms 内忽略单击
+  if (lastTapTime.value && Date.now() - lastTapTime.value < 400) return
 
   if (clickTimer.value) clearTimeout(clickTimer.value)
   clickTimer.value = setTimeout(() => {
@@ -290,6 +306,17 @@ onUnmounted(() => {
 .card-back {
   z-index: 10;
   pointer-events: none;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.card-back .photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+  max-width: none;
+  max-height: none;
 }
 
 .photo-img {

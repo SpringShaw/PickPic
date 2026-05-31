@@ -29,6 +29,7 @@
           :key="'back-' + nextPhoto.path"
           :photo="nextPhoto"
           mode="back"
+          :revealing="isRevealing"
         />
 
         <!-- 前面卡片（当前） -->
@@ -36,6 +37,7 @@
           :key="'front-' + currentPhoto.path"
           :photo="currentPhoto"
           mode="front"
+          @leave-start="onLeaveStart"
           @leave-done="onLeaveDone"
           @double-tap="onFavorite"
           @single-tap="showInfo = true"
@@ -107,6 +109,7 @@ import ImageViewer from './components/ImageViewer.vue'
 
 const currentPhoto = ref(null)
 const nextPhoto = ref(null)
+const isRevealing = ref(false)
 const stats = ref({})
 const settings = ref({})
 const showInfo = ref(false)
@@ -178,6 +181,11 @@ async function loadSettings() {
   }
 }
 
+// 卡片开始飞出 → 触发背面卡片揭示动画
+function onLeaveStart() {
+  isRevealing.value = true
+}
+
 // 卡片飞出完成 → 切换到下一张
 async function onLeaveDone(direction) {
   // 上滑删除
@@ -188,6 +196,9 @@ async function onLeaveDone(direction) {
       console.error('删除失败:', e)
     }
   }
+  // favorite / right → 不调删除API，直接切下一张
+
+  isRevealing.value = false
 
   if (nextPhoto.value) {
     currentPhoto.value = nextPhoto.value
