@@ -111,6 +111,9 @@
 
           <!-- 操作区 -->
           <div class="setting-group">
+            <button class="action-btn primary" @click="showRecycle = true">
+              🗑️ 回收站管理
+            </button>
             <button class="action-btn danger" @click="showResetBlacklistConfirm = true">
               重置黑名单
             </button>
@@ -142,12 +145,18 @@
     @confirm="handleResetStats"
     @cancel="showResetStatsConfirm = false"
   />
+  <RecyclePanel
+    :visible="showRecycle"
+    @close="showRecycle = false"
+    @restored="emit('updated')"
+  />
 </template>
 
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { updateSetting as apiUpdateSetting, resetBlacklist, resetStats, getSettings, triggerScan as apiTriggerScan, getScanStatus } from '../services/api'
 import ConfirmDialog from './ConfirmDialog.vue'
+import RecyclePanel from './RecyclePanel.vue'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -158,6 +167,7 @@ const emit = defineEmits(['close', 'updated'])
 
 const showResetBlacklistConfirm = ref(false)
 const showResetStatsConfirm = ref(false)
+const showRecycle = ref(false)
 const saving = ref(false)
 
 const photosDir = ref('')

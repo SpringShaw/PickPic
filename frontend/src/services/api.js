@@ -84,3 +84,27 @@ export async function checkDirectory(path) {
   const res = await api.get('/dir/check', { params: { path } })
   return res.data
 }
+
+// 获取回收站列表
+export async function getRecycleList() {
+  const res = await api.get('/recycle')
+  return res.data
+}
+
+// 恢复单张照片
+export async function restorePhoto(filePath) {
+  const res = await api.post('/recycle/restore', null, { params: { file_path: filePath } })
+  return res.data
+}
+
+// 批量恢复所有照片
+export async function restoreAllPhotos() {
+  const res = await api.post('/recycle/restore-all')
+  return res.data
+}
+
+// 清空回收站
+export async function emptyRecycle() {
+  const res = await api.delete('/recycle/empty')
+  return res.data
+}
