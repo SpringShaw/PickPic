@@ -217,8 +217,14 @@ def scan_and_cache(force: bool = False) -> dict:
 
         # 读取数据库中已有的活跃照片（路径 → mtime 映射）
         cached = {}
-        for row in db.execute("SELECT file_path, mtime FROM photos WHERE status='active'").fetchall():
-            cached[row["file_path"]] = row["mtime"]
+        if force:
+            # 强制模式：清空所有活跃照片记录，强制重新扫描+重新生成缩略图
+            db.execute("UPDATE scan_status SET total=0 WHERE id=1")
+            db.execute("DELETE FROM photos WHERE status='active'")
+            db.commit()
+        else:
+            for row in db.execute("SELECT file_path, mtime FROM photos WHERE status='active'").fetchall():
+                cached[row["file_path"]] = row["mtime"]
 
         # 扫描文件系统
         fs_photos = scan_photos(photos_dir)
