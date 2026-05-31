@@ -47,9 +47,21 @@
       </template>
     </div>
 
-    <!-- 底部提示 -->
+    <!-- 底部提示 + 模式切换 -->
     <div class="bottom-hint">
-      上滑删除 · 双击收藏 · 右滑保留
+      <span>{{ mediaType === 'video' ? '上滑删除 · 右滑保留' : '上滑删除 · 双击收藏 · 右滑保留' }}</span>
+      <div class="mode-toggle">
+        <button
+          class="mode-btn"
+          :class="{ active: mediaType === 'photo' }"
+          @click="switchMode('photo')"
+        >📷 照片</button>
+        <button
+          class="mode-btn"
+          :class="{ active: mediaType === 'video' }"
+          @click="switchMode('video')"
+        >🎬 视频</button>
+      </div>
     </div>
 
     <!-- 查看原图按钮（底部居中） -->
@@ -121,11 +133,21 @@ const showViewer = ref(false)
 const noPhotos = ref(false)
 const errorMsg = ref('')
 const loading = ref(false)
+const mediaType = ref('photo') // 'photo' | 'video'
+
+// 切换模式
+async function switchMode(mode) {
+  if (mediaType.value === mode) return
+  mediaType.value = mode
+  currentPhoto.value = null
+  nextPhoto.value = null
+  await initPhotos()
+}
 
 // 预加载下一张（静默，不设 errorMsg）
 async function preloadNext() {
   try {
-    const res = await getRandomPhoto()
+    const res = await getRandomPhoto(mediaType.value)
     if (res.success && res.data) {
       nextPhoto.value = res.data
     } else {
@@ -147,7 +169,7 @@ async function initPhotos() {
 
   try {
     // 先加载当前
-    const res = await getRandomPhoto()
+    const res = await getRandomPhoto(mediaType.value)
     if (res.success && res.data) {
       currentPhoto.value = res.data
       // 预加载下一张
@@ -272,6 +294,32 @@ onMounted(() => {
   font-size: 12px;
   color: #ccc;
   letter-spacing: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.mode-btn {
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  color: #888;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-btn.active {
+  background: #007AFF;
+  color: #fff;
+  border-color: #007AFF;
 }
 
 .empty-state {

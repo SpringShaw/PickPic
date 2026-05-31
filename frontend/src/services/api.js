@@ -6,8 +6,8 @@ const api = axios.create({
 })
 
 // 获取随机图片
-export async function getRandomPhoto() {
-  const res = await api.get('/photo/random')
+export async function getRandomPhoto(mediaType = 'photo') {
+  const res = await api.get('/photo/random', { params: { media_type: mediaType } })
   return res.data
 }
 

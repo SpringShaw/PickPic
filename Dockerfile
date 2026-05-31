@@ -8,12 +8,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DB_DIR=/app/db \
     NAS_HOST_DIR=/nas/host
 
-# 安装系统依赖（HEIC支持）
+# 安装系统依赖（HEIC支持 + 视频处理）
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libheif-dev \
     libde265-dev \
     libx265-dev \
     build-essential \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app/backend

@@ -16,15 +16,17 @@ router = APIRouter(prefix="/api")
 
 
 @router.get("/photo/random")
-async def random_photo():
-    """随机获取一张图片"""
+async def random_photo(media_type: str = "photo"):
+    """随机获取一张图片或视频"""
+    if media_type not in ("photo", "video"):
+        raise HTTPException(status_code=400, detail="media_type must be 'photo' or 'video'")
     settings = get_settings()
     duration = settings.get("blacklist_duration", "3y")
     dup_filter = settings.get("enable_duplicate_filter", "true") == "true"
 
-    photo = get_random_photo(blacklist_duration_key=duration, enable_duplicate_filter=dup_filter)
+    photo = get_random_photo(blacklist_duration_key=duration, enable_duplicate_filter=dup_filter, media_type=media_type)
     if not photo:
-        raise HTTPException(status_code=404, detail="没有更多可浏览的图片")
+        raise HTTPException(status_code=404, detail="没有更多可浏览的{}".format("视频" if media_type == "video" else "图片"))
 
     # 加入黑名单（path是NAS路径，需转容器路径存储）
     add_to_blacklist(_to_container_path(photo["path"]), action="viewed", duration_key=duration)
@@ -56,6 +58,10 @@ async def serve_image(path: str):
         ".heic": "image/heic", ".heif": "image/heif",
         ".bmp": "image/bmp", ".gif": "image/gif",
         ".tiff": "image/tiff",
+        ".mp4": "video/mp4", ".mov": "video/quicktime",
+        ".avi": "video/x-msvideo", ".mkv": "video/x-matroska",
+        ".webm": "video/webm", ".3gp": "video/3gpp",
+        ".flv": "video/x-flv",
     }
     media_type = mime_map.get(suffix, "application/octet-stream")
     return FileResponse(str(img_path), media_type=media_type)

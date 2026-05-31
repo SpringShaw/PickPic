@@ -95,6 +95,10 @@ def init_db():
         cursor.execute("ALTER TABLE photos ADD COLUMN status TEXT DEFAULT 'active'")
     if 'deleted_at' not in photo_columns:
         cursor.execute("ALTER TABLE photos ADD COLUMN deleted_at REAL")
+    if 'media_type' not in photo_columns:
+        cursor.execute("ALTER TABLE photos ADD COLUMN media_type TEXT DEFAULT 'photo'")
+    if 'duration' not in photo_columns:
+        cursor.execute("ALTER TABLE photos ADD COLUMN duration REAL")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_photos_status ON photos(status)")
 
     # 扫描状态表（新增）

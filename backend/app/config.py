@@ -29,6 +29,9 @@ DEFAULT_BLACKLIST_DURATION = os.getenv("DEFAULT_BLACKLIST_DURATION", "3y")
 # 支持的图片格式
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".bmp", ".gif", ".tiff"}
 
+# 支持的视频格式
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".3gp", ".flv"}
+
 # 重复图片过滤
 ENABLE_DUPLICATE_FILTER = os.getenv("ENABLE_DUPLICATE_FILTER", "true").lower() == "true"
 

@@ -11,7 +11,7 @@ from pathlib import Path
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 
-from app.config import SUPPORTED_EXTENSIONS, BLACKLIST_DURATION_OPTIONS, NAS_HOST_DIR, THUMBNAIL_DIR, THUMBNAIL_SIZE
+from app.config import SUPPORTED_EXTENSIONS, VIDEO_EXTENSIONS, BLACKLIST_DURATION_OPTIONS, NAS_HOST_DIR, THUMBNAIL_DIR, THUMBNAIL_SIZE
 from app.models.database import get_db
 
 # 逆地理编码（GPS转省市区）
@@ -164,23 +164,81 @@ def _get_thumb_path(file_hash: str) -> Path:
     return THUMBNAIL_DIR / f"{file_hash}.jpg"
 
 
+def generate_video_thumbnail(video_path: Path, thumb_path: Path) -> bool:
+    """用ffmpeg提取视频第一帧作为缩略图"""
+    try:
+        thumb_path.parent.mkdir(parents=True, exist_ok=True)
+        import subprocess
+        result = subprocess.run(
+            [
+                "ffmpeg", "-i", str(video_path),
+                "-ss", "00:00:01",  # 第1秒
+                "-vframes", "1",
+                "-vf", "scale=400:400:force_original_aspect_ratio=decrease",
+                "-y", str(thumb_path)
+            ],
+            capture_output=True, timeout=30
+        )
+        return result.returncode == 0 and thumb_path.exists()
+    except Exception as e:
+        print(f"视频缩略图生成失败: {video_path}, 错误: {e}")
+        return False
+
+
+def get_video_metadata(video_path: Path) -> dict:
+    """用ffprobe提取视频元数据"""
+    try:
+        import subprocess, json
+        result = subprocess.run(
+            [
+                "ffprobe", "-v", "quiet",
+                "-print_format", "json",
+                "-show_format", "-show_streams",
+                str(video_path)
+            ],
+            capture_output=True, text=True, timeout=15
+        )
+        if result.returncode != 0:
+            return {}
+        data = json.loads(result.stdout)
+        meta = {}
+        # 从format获取时长
+        fmt = data.get("format", {})
+        if "duration" in fmt:
+            meta["duration"] = float(fmt["duration"])
+        # 从视频流获取分辨率
+        for stream in data.get("streams", []):
+            if stream.get("codec_type") == "video":
+                meta["width"] = stream.get("width")
+                meta["height"] = stream.get("height")
+                break
+        return meta
+    except Exception as e:
+        print(f"视频元数据提取失败: {video_path}, 错误: {e}")
+        return {}
+
+
 def scan_photos(base_dir: Path) -> list[dict]:
-    """扫描目录下所有支持的图片文件（轻量版，仅返回路径信息）"""
+    """扫描目录下所有支持的图片和视频文件"""
     photos = []
     if not base_dir.exists():
         return photos
+    all_extensions = SUPPORTED_EXTENSIONS | VIDEO_EXTENSIONS
     for root, dirs, files in os.walk(base_dir):
         for file in files:
             file_path = Path(root) / file
-            if file_path.suffix.lower() in SUPPORTED_EXTENSIONS:
+            ext = file_path.suffix.lower()
+            if ext in all_extensions:
                 try:
                     stat = file_path.stat()
+                    media_type = "video" if ext in VIDEO_EXTENSIONS else "photo"
                     photos.append({
                         "path": str(file_path),
                         "name": file,
                         "dir": str(root),
                         "size": stat.st_size,
                         "mtime": stat.st_mtime,
+                        "media_type": media_type,
                     })
                 except OSError:
                     continue
@@ -255,25 +313,51 @@ def scan_and_cache(force: bool = False) -> dict:
             if need_update:
                 p = Path(fpath)
                 file_hash = compute_file_hash(p)
-                exif = get_exif_data(p)
-                gps = exif.get("gps")
-                location = _gps_to_location(gps)
+                media_type = photo.get("media_type", "photo")
                 thumb_path = ""
+                width = None
+                height = None
+                date = None
+                gps_lat = None
+                gps_lng = None
+                location = None
+                duration = None
 
-                if file_hash:
-                    tp = _get_thumb_path(file_hash)
-                    if not tp.exists():
-                        generate_thumbnail(p, tp)
-                    thumb_path = str(tp)
+                if media_type == "video":
+                    # 视频：ffmpeg缩略图 + ffprobe元数据
+                    vmeta = get_video_metadata(p)
+                    width = vmeta.get("width")
+                    height = vmeta.get("height")
+                    duration = vmeta.get("duration")
+                    if file_hash:
+                        tp = _get_thumb_path(file_hash)
+                        if not tp.exists():
+                            generate_video_thumbnail(p, tp)
+                        thumb_path = str(tp)
+                else:
+                    # 图片：EXIF + Pillow缩略图
+                    exif = get_exif_data(p)
+                    gps = exif.get("gps")
+                    location = _gps_to_location(gps)
+                    width = exif.get("width")
+                    height = exif.get("height")
+                    date = exif.get("date")
+                    gps_lat = gps["lat"] if gps else None
+                    gps_lng = gps["lng"] if gps else None
+                    if file_hash:
+                        tp = _get_thumb_path(file_hash)
+                        if not tp.exists():
+                            generate_thumbnail(p, tp)
+                        thumb_path = str(tp)
 
                 db.execute(
                     """INSERT OR REPLACE INTO photos 
-                       (file_path, file_hash, file_size, mtime, width, height, date, gps_lat, gps_lng, location, thumb_path, dir, name)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       (file_path, file_hash, file_size, mtime, width, height, date, gps_lat, gps_lng, location, thumb_path, dir, name, media_type, duration)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (fpath, file_hash, photo["size"], fmtime,
-                     exif.get("width"), exif.get("height"), exif.get("date"),
-                     gps["lat"] if gps else None, gps["lng"] if gps else None,
-                     location, thumb_path, photo["dir"], photo["name"])
+                     width, height, date, gps_lat, gps_lng,
+                     location, thumb_path, photo["dir"], photo["name"],
+                     media_type, duration)
                 )
 
             processed += 1
@@ -357,8 +441,8 @@ def get_cached_photo_count() -> int:
     return row["cnt"] if row else 0
 
 
-def get_random_photo(blacklist_duration_key: str = "3y", enable_duplicate_filter: bool = True) -> dict | None:
-    """随机获取一张未浏览过的图片（使用缓存）"""
+def get_random_photo(blacklist_duration_key: str = "3y", enable_duplicate_filter: bool = True, media_type: str = "photo") -> dict | None:
+    """随机获取一张未浏览过的图片或视频（使用缓存）"""
     dirs = _get_dirs()
     photos_dir = dirs.get("photos")
     if not photos_dir or not photos_dir.exists():
@@ -374,23 +458,25 @@ def get_random_photo(blacklist_duration_key: str = "3y", enable_duplicate_filter
     ).fetchall()
     blacklisted_paths = {r["file_path"] for r in rows}
 
+    media_filter = "AND media_type = ?"
+
     if enable_duplicate_filter:
         blacklisted_hashes = {r["file_hash"] for r in rows if r["file_hash"]}
         if blacklisted_hashes:
             placeholders = ",".join("?" * len(blacklisted_hashes))
             candidates = db.execute(
-                f"SELECT * FROM photos WHERE status='active' AND file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?) AND (file_hash IS NULL OR file_hash NOT IN ({placeholders}))",
-                [now] + list(blacklisted_hashes)
+                f"SELECT * FROM photos WHERE status='active' AND {media_filter} AND file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?) AND (file_hash IS NULL OR file_hash NOT IN ({placeholders}))",
+                [media_type, now] + list(blacklisted_hashes)
             ).fetchall()
         else:
             candidates = db.execute(
-                "SELECT * FROM photos WHERE status='active' AND file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?)",
-                (now,)
+                f"SELECT * FROM photos WHERE status='active' AND {media_filter} AND file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?)",
+                (media_type, now)
             ).fetchall()
     else:
         candidates = db.execute(
-            "SELECT * FROM photos WHERE status='active' AND file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?)",
-            (now,)
+            f"SELECT * FROM photos WHERE status='active' AND {media_filter} AND file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?)",
+            (media_type, now)
         ).fetchall()
 
     db.close()
@@ -415,6 +501,8 @@ def get_random_photo(blacklist_duration_key: str = "3y", enable_duplicate_filter
         "location": chosen["location"],
         "thumb_path": chosen["thumb_path"],
         "file_hash": chosen["file_hash"],
+        "media_type": chosen["media_type"] if "media_type" in chosen.keys() else "photo",
+        "duration": chosen["duration"] if "duration" in chosen.keys() else None,
         "relative_path": str(Path(chosen["file_path"]).relative_to(photos_dir)) if str(chosen["file_path"]).startswith(str(photos_dir)) else chosen["name"],
     }
 

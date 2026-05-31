@@ -4,7 +4,7 @@
       <!-- 关闭按钮 -->
       <button class="viewer-close" @click="$emit('close')">✕</button>
 
-      <!-- 图片容器 -->
+      <!-- 图片/视频容器 -->
       <div
         class="viewer-container"
         ref="containerRef"
@@ -16,7 +16,20 @@
         @mouseup="onMouseUp"
         @wheel="onWheel"
       >
+        <!-- 视频 -->
+        <video
+          v-if="isVideo"
+          ref="videoRef"
+          :src="imageUrl"
+          class="viewer-video"
+          controls
+          autoplay
+          playsinline
+          @loadeddata="onVideoLoad"
+        ></video>
+        <!-- 图片 -->
         <img
+          v-else
           ref="imgRef"
           :src="imageUrl"
           :alt="photo.name"
@@ -53,7 +66,9 @@ const emit = defineEmits(['close'])
 
 const containerRef = ref(null)
 const imgRef = ref(null)
+const videoRef = ref(null)
 const loading = ref(true)
+const isVideo = computed(() => props.photo.media_type === 'video')
 const showZoomHint = ref(false)
 let zoomHintTimer = null
 
@@ -98,6 +113,10 @@ watch(() => props.visible, (val) => {
 })
 
 function onImageLoad() {
+  loading.value = false
+}
+
+function onVideoLoad() {
   loading.value = false
 }
 
@@ -304,6 +323,13 @@ function onWheel(e) {
   transition: transform 0.1s ease;
   user-select: none;
   -webkit-user-select: none;
+}
+
+.viewer-video {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  outline: none;
 }
 
 .viewer-loading {

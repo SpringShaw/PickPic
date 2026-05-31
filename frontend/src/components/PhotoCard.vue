@@ -23,6 +23,12 @@
       draggable="false"
     />
 
+    <!-- 视频播放按钮 -->
+    <div v-if="isVideo" class="video-play-overlay">
+      <div class="play-btn">▶</div>
+      <div v-if="durationText" class="video-duration">{{ durationText }}</div>
+    </div>
+
     <!-- 收藏爱心动画 -->
     <transition name="heart-fade">
       <div v-if="showHeart" class="heart-overlay">
@@ -77,6 +83,16 @@ const lastTapTime = ref(0)
 const clickTimer = ref(null)
 
 const imageUrl = computed(() => getThumbnailUrl(props.photo))
+
+const isVideo = computed(() => props.photo.media_type === 'video')
+
+const durationText = computed(() => {
+  const d = props.photo.duration
+  if (!d) return ''
+  const min = Math.floor(d / 60)
+  const sec = Math.floor(d % 60)
+  return `${min}:${sec.toString().padStart(2, '0')}`
+})
 
 const cardStyle = computed(() => {
   if (props.mode === 'back') {
@@ -338,6 +354,42 @@ onUnmounted(() => {
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   pointer-events: none;
+}
+
+/* 视频播放按钮 */
+.video-play-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.play-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 4px;
+  backdrop-filter: blur(8px);
+}
+
+.video-duration {
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  backdrop-filter: blur(8px);
 }
 
 .heart-overlay {
