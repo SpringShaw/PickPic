@@ -33,26 +33,20 @@ function formatSize(bytes) {
 <style scoped>
 .stats-bar {
   position: fixed;
-  top: 0;
+  bottom: max(145px, calc(env(safe-area-inset-bottom) + 112px));
   left: 0;
   right: 0;
-  z-index: 100;
+  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 6px 16px;
-  padding-top: max(10px, env(safe-area-inset-top));
+  padding: 8px 16px;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-}
-
-@media (min-width: 768px) {
-  .stats-bar {
-    padding: 12px 16px;
-    padding-top: max(12px, env(safe-area-inset-top));
-  }
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .stat-item {

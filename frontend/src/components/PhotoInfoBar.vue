@@ -1,9 +1,9 @@
 <template>
   <div class="info-bar" v-if="photo">
     <div class="info-main">
-      <span class="info-filename" :title="photo.name">{{ photo.name }}</span>
-      <span class="info-sep">·</span>
       <span class="info-date">{{ formatDate(photo.date) }}</span>
+      <span class="info-sep">·</span>
+      <span class="info-filename" :title="photo.name">{{ photo.name }}</span>
     </div>
     <div class="info-sub">
       <span v-if="photo.width && photo.height" class="info-tag">{{ photo.width }}×{{ photo.height }}</span>
@@ -34,8 +34,8 @@ function formatSize(bytes) {
 
 <style scoped>
 .info-bar {
-  position: fixed;
-  top: max(38px, calc(env(safe-area-inset-top) + 28px));
+  position: absolute;
+  top: max(8px, calc(env(safe-area-inset-top) + 8px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 50;
@@ -51,12 +51,6 @@ function formatSize(bytes) {
   gap: 3px;
   pointer-events: none;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-}
-
-@media (min-width: 768px) {
-  .info-bar {
-    top: 48px;
-  }
 }
 
 .info-main {

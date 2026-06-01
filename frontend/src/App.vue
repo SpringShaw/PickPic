@@ -1,8 +1,5 @@
 <template>
   <div class="app-container">
-    <!-- 顶部统计栏 -->
-    <StatsBar :stats="stats" />
-
     <!-- 主体内容 -->
     <div class="main-area">
       <!-- 无图片提示 -->
@@ -90,6 +87,9 @@
       </svg>
       <span>放大查看</span>
     </button>
+
+    <!-- 统计信息（照片和放大镜之间） -->
+    <StatsBar :stats="stats" v-if="currentPhoto && !noPhotos && !errorMsg" />
 
     <!-- 图片信息弹窗 -->
     <InfoPanel
@@ -353,7 +353,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: max(30px, calc(env(safe-area-inset-top) + 20px)) 0 40px;
+  padding: max(30px, calc(env(safe-area-inset-top) + 20px)) 0 160px;
   position: relative;
 }
 
