@@ -114,6 +114,9 @@
             <button class="action-btn primary" @click="showRecycle = true">
               🗑️ 回收站管理
             </button>
+            <button class="action-btn primary" @click="showFavorites = true">
+              ⭐ 收藏夹
+            </button>
             <button class="action-btn danger" @click="showResetBlacklistConfirm = true">
               重置黑名单
             </button>
@@ -150,6 +153,11 @@
     @close="showRecycle = false"
     @restored="emit('updated')"
   />
+  <FavoritesPanel
+    :visible="showFavorites"
+    @close="showFavorites = false"
+    @updated="emit('updated')"
+  />
 </template>
 
 <script setup>
@@ -157,6 +165,7 @@ import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { updateSetting as apiUpdateSetting, resetBlacklist, resetStats, getSettings, triggerScan as apiTriggerScan, getScanStatus } from '../services/api'
 import ConfirmDialog from './ConfirmDialog.vue'
 import RecyclePanel from './RecyclePanel.vue'
+import FavoritesPanel from './FavoritesPanel.vue'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -168,6 +177,7 @@ const emit = defineEmits(['close', 'updated'])
 const showResetBlacklistConfirm = ref(false)
 const showResetStatsConfirm = ref(false)
 const showRecycle = ref(false)
+const showFavorites = ref(false)
 const saving = ref(false)
 
 const photosDir = ref('')

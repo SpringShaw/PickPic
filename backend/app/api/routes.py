@@ -4,6 +4,7 @@ from pathlib import Path
 
 from app.services.photo_service import (
     get_random_photo, add_to_blacklist, favorite_photo, delete_photo,
+    get_favorites, unfavorite_photo, delete_favorite_photo,
     get_stats, get_blacklist_count, reset_blacklist, reset_stats,
     get_settings, update_setting, get_photo_count, get_directory_info,
     get_scan_status, scan_and_cache, get_cached_photo_count,
@@ -74,6 +75,31 @@ async def serve_thumbnail(file_hash: str):
     if not thumb_path.exists():
         raise HTTPException(status_code=404, detail="缩略图不存在")
     return FileResponse(str(thumb_path), media_type="image/jpeg")
+
+
+@router.get("/favorites")
+async def list_favorites():
+    """获取收藏夹列表"""
+    photos = get_favorites()
+    return {"success": True, "data": photos}
+
+
+@router.post("/favorites/unfavorite")
+async def unfavorite(file_path: str):
+    """取消收藏"""
+    result = unfavorite_photo(_to_container_path(file_path))
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@router.delete("/favorites/delete")
+async def delete_fav(file_path: str):
+    """从收藏夹删除（移入回收站）"""
+    result = delete_favorite_photo(_to_container_path(file_path))
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
 
 
 @router.post("/photo/favorite")

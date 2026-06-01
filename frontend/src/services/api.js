@@ -43,6 +43,24 @@ export async function favoritePhoto(filePath) {
   return res.data
 }
 
+// 获取收藏夹列表
+export async function getFavorites() {
+  const res = await api.get('/favorites')
+  return res.data
+}
+
+// 取消收藏
+export async function unfavoritePhoto(filePath) {
+  const res = await api.post('/favorites/unfavorite', null, { params: { file_path: filePath } })
+  return res.data
+}
+
+// 从收藏夹删除（移入回收站）
+export async function deleteFavoritePhoto(filePath) {
+  const res = await api.delete('/favorites/delete', { params: { file_path: filePath } })
+  return res.data
+}
+
 // 删除图片
 export async function deletePhoto(filePath) {
   const res = await api.post('/photo/delete', null, { params: { file_path: filePath } })
