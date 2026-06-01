@@ -59,10 +59,25 @@
                 恢复选中
               </button>
               <button
+                class="action-btn delete-btn"
+                :disabled="selected.size === 0"
+                @click="showDeleteSelectedConfirm = true"
+              >
+                删除选中
+              </button>
+            </div>
+            <div class="action-buttons" style="margin-top: 8px;">
+              <button
                 class="action-btn restore-all-btn"
                 @click="showRestoreAllConfirm = true"
               >
                 全部恢复
+              </button>
+              <button
+                class="action-btn empty-btn"
+                @click="showEmptyConfirm = true"
+              >
+                全部清空
               </button>
             </div>
           </div>
@@ -83,11 +98,23 @@
     @confirm="handleRestoreAll"
     @cancel="showRestoreAllConfirm = false"
   />
+  <ConfirmDialog
+    :visible="showDeleteSelectedConfirm"
+    :message="`确定永久删除选中的 ${selected.size} 个文件吗？此操作不可恢复`"
+    @confirm="handleDeleteSelected"
+    @cancel="showDeleteSelectedConfirm = false"
+  />
+  <ConfirmDialog
+    :visible="showEmptyConfirm"
+    message="确定清空回收站吗？所有文件将永久删除，此操作不可恢复"
+    @confirm="handleEmpty"
+    @cancel="showEmptyConfirm = false"
+  />
 </template>
 
 <script setup>
 import { ref, watch } from 'vue'
-import { getRecycleList, restorePhoto, restoreAllPhotos } from '../services/api'
+import { getRecycleList, restorePhoto, restoreAllPhotos, deleteRecycleItem, emptyRecycle } from '../services/api'
 import ConfirmDialog from './ConfirmDialog.vue'
 
 const props = defineProps({
@@ -100,6 +127,8 @@ const loading = ref(false)
 const photos = ref([])
 const selected = ref(new Set())
 const showRestoreAllConfirm = ref(false)
+const showDeleteSelectedConfirm = ref(false)
+const showEmptyConfirm = ref(false)
 const resultMsg = ref('')
 const resultType = ref('')
 
@@ -173,6 +202,37 @@ async function handleRestoreAll() {
     }
   } catch (e) {
     showResult('恢复失败', 'error')
+  }
+  await loadList()
+  emit('restored')
+}
+
+async function handleDeleteSelected() {
+  showDeleteSelectedConfirm.value = false
+  if (selected.value.size === 0) return
+  let successCount = 0
+  for (const path of selected.value) {
+    try {
+      await deleteRecycleItem(path)
+      successCount++
+    } catch (e) {
+      console.error('删除失败:', path, e)
+    }
+  }
+  showResult(`已永久删除 ${successCount} 个文件`, 'success')
+  await loadList()
+  emit('restored')
+}
+
+async function handleEmpty() {
+  showEmptyConfirm.value = false
+  try {
+    const res = await emptyRecycle()
+    if (res.success) {
+      showResult(res.message, 'success')
+    }
+  } catch (e) {
+    showResult('清空失败', 'error')
   }
   await loadList()
   emit('restored')
@@ -419,6 +479,21 @@ watch(() => props.visible, (val) => {
 
 .restore-all-btn:active {
   background: #f0f0f0;
+}
+
+.delete-btn {
+  background: #FF3B30;
+  color: #fff;
+}
+
+.empty-btn {
+  background: #fff;
+  color: #FF3B30;
+  border: 1px solid #FFD5D2;
+}
+
+.empty-btn:active {
+  background: #FFF0EF;
 }
 
 /* 结果提示 */

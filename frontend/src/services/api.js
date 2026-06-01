@@ -121,6 +121,12 @@ export async function restoreAllPhotos() {
   return res.data
 }
 
+// 永久删除单条回收站记录
+export async function deleteRecycleItem(filePath) {
+  const res = await api.delete('/recycle/delete', { params: { file_path: filePath } })
+  return res.data
+}
+
 // 清空回收站
 export async function emptyRecycle() {
   const res = await api.delete('/recycle/empty')

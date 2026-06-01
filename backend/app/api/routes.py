@@ -207,9 +207,29 @@ async def api_recycle_restore_all():
     return result
 
 
+@router.delete("/recycle/delete")
+async def api_recycle_delete(file_path: str):
+    """永久删除回收站中的单条记录"""
+    container_path = _to_container_path(file_path)
+    p = Path(container_path)
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="文件不存在")
+    try:
+        p.unlink()
+        # 从数据库中删除记录
+        from app.models.database import get_db
+        db = get_db()
+        db.execute("DELETE FROM photos WHERE file_path=? AND status='deleted'", (container_path,))
+        db.commit()
+        db.close()
+        return {"success": True, "message": "已永久删除"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.delete("/recycle/empty")
 async def api_recycle_empty():
-    """清空回收站（永久删除）"""
+    """清空回收站（永久删除全部）"""
     dirs = _get_dirs()
     recycle_dir = dirs.get("recycle")
     if not recycle_dir or not recycle_dir.exists():
@@ -223,4 +243,10 @@ async def api_recycle_empty():
             deleted += 1
         except Exception:
             continue
-    return {"success": True, "deleted": deleted, "message": f"已永久删除 {deleted} 张照片"}
+    # 清空数据库中的deleted记录
+    from app.models.database import get_db
+    db = get_db()
+    db.execute("DELETE FROM photos WHERE status='deleted'")
+    db.commit()
+    db.close()
+    return {"success": True, "deleted": deleted, "message": f"已永久删除 {deleted} 个文件"}
