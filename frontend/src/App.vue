@@ -61,7 +61,7 @@
 
     <!-- 底部提示 + 模式切换 -->
     <div class="bottom-hint">
-      <span>{{ mediaType === 'video' ? '左滑找回 · 上滑删除 · 右滑保留' : '左滑找回 · 上滑删除 · 双击收藏 · 右滑保留' }}</span>
+      <span>{{ mediaType === 'video' ? '上滑删除 · 右滑保留' : '上滑删除 · 双击收藏 · 右滑保留' }}</span>
       <div class="mode-toggle">
         <button
           class="mode-btn"
