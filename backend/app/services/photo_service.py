@@ -381,6 +381,29 @@ def scan_and_cache(force: bool = False) -> dict:
                     db.execute("UPDATE photos SET status='deleted', deleted_at=? WHERE file_path=? AND status='active'", (now, fpath))
                 deleted_count = len(missing)
 
+        # 为回收站中缺失缩略图的照片补生成缩略图
+        try:
+            deleted_rows = db.execute(
+                "SELECT file_hash, file_path, media_type FROM photos WHERE status='deleted' AND file_hash IS NOT NULL"
+            ).fetchall()
+            recycled_thumbs = 0
+            for row in deleted_rows:
+                tp = _get_thumb_path(row["file_hash"])
+                if not tp.exists():
+                    fpath = Path(row["file_path"])
+                    if fpath.exists():
+                        ok = False
+                        if row["media_type"] == "video":
+                            ok = generate_video_thumbnail(fpath, tp)
+                        else:
+                            ok = generate_thumbnail(fpath, tp)
+                        if ok:
+                            recycled_thumbs += 1
+            if recycled_thumbs:
+                print(f"✅ 回收站补生成缩略图: {recycled_thumbs} 个")
+        except Exception as e:
+            print(f"⚠️ 回收站缩略图补生成失败: {e}")
+
         # 最终提交
         db.execute(
             """UPDATE scan_status SET status='idle', total=?, processed=?, 
@@ -458,7 +481,7 @@ def get_random_photo(blacklist_duration_key: str = "3y", enable_duplicate_filter
     ).fetchall()
     blacklisted_paths = {r["file_path"] for r in rows}
 
-    media_filter = "AND media_type = ?"
+    media_filter = "media_type = ?"
 
     if enable_duplicate_filter:
         blacklisted_hashes = {r["file_hash"] for r in rows if r["file_hash"]}

@@ -378,10 +378,10 @@ onMounted(() => {
 
 .view-btn {
   position: fixed;
-  bottom: 50px;
+  bottom: 90px;
   left: 50%;
   transform: translateX(-50%);
-  bottom: max(50px, calc(env(safe-area-inset-bottom) + 22px));
+  bottom: max(90px, calc(env(safe-area-inset-bottom) + 62px));
   display: flex;
   align-items: center;
   gap: 6px;
