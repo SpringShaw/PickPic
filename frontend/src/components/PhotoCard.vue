@@ -63,7 +63,7 @@ const props = defineProps({
   revealProgress: { type: Number, default: 0 }, // 0~1, 背面卡片渐进揭示进度
 })
 
-const emit = defineEmits(['swipe-right', 'swipe-up', 'double-tap', 'single-tap', 'leave-start', 'leave-done', 'swipe-progress'])
+const emit = defineEmits(['swipe-right', 'swipe-up', 'swipe-left', 'double-tap', 'single-tap', 'leave-start', 'leave-done', 'swipe-progress'])
 
 const cardRef = ref(null)
 const loading = ref(true)
@@ -127,12 +127,14 @@ const cardStyle = computed(() => {
 
 const indicatorClass = computed(() => {
   if (indicatorType.value === 'right') return 'indicator-right'
+  if (indicatorType.value === 'left') return 'indicator-left'
   if (indicatorType.value === 'up') return 'indicator-up'
   return ''
 })
 
 const indicatorText = computed(() => {
   if (indicatorType.value === 'right') return '保留'
+  if (indicatorType.value === 'left') return '找回'
   if (indicatorType.value === 'up') return '删除'
   return ''
 })
@@ -157,6 +159,9 @@ function onTouchMove(e) {
   if (Math.abs(moveX.value) > 50 && moveX.value > 0) {
     showIndicator.value = true
     indicatorType.value = 'right'
+  } else if (moveX.value < -50) {
+    showIndicator.value = true
+    indicatorType.value = 'left'
   } else if (Math.abs(moveY.value) > 50 && moveY.value < 0) {
     showIndicator.value = true
     indicatorType.value = 'up'
@@ -191,6 +196,9 @@ function onMouseMove(e) {
   if (Math.abs(moveX.value) > 50 && moveX.value > 0) {
     showIndicator.value = true
     indicatorType.value = 'right'
+  } else if (moveX.value < -50) {
+    showIndicator.value = true
+    indicatorType.value = 'left'
   } else if (Math.abs(moveY.value) > 50 && moveY.value < 0) {
     showIndicator.value = true
     indicatorType.value = 'up'
@@ -221,6 +229,11 @@ function checkSwipe() {
   const threshold = 80
   if (moveX.value > threshold) {
     animateLeave(window.innerWidth * 1.2, moveY.value * 0.5, 'right')
+  } else if (moveX.value < -threshold) {
+    // 左滑：不飞出，直接触发召回事件
+    moveX.value = 0
+    moveY.value = 0
+    emit('swipe-left')
   } else if (moveY.value < -threshold) {
     animateLeave(moveX.value * 0.5, -window.innerHeight * 1.2, 'up')
   } else {
@@ -442,6 +455,12 @@ onUnmounted(() => {
   right: 20px;
   background: rgba(76, 175, 80, 0.15);
   color: #4CAF50;
+}
+
+.indicator-left {
+  left: 20px;
+  background: rgba(33, 150, 243, 0.15);
+  color: #2196F3;
 }
 
 .indicator-up {

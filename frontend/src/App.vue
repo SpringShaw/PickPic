@@ -33,14 +33,26 @@
           :revealProgress="swipeProgress"
         />
 
+        <!-- 召回卡片（找回上一张） -->
+        <PhotoCard
+          v-if="isRecalling && skippedPhoto"
+          :key="'recall-' + skippedPhoto.path"
+          :photo="skippedPhoto"
+          mode="back"
+          :revealing="true"
+          :revealProgress="recallProgress"
+        />
+
         <!-- 前面卡片（当前） -->
         <PhotoCard
+          v-if="!isRecalling"
           :key="'front-' + currentPhoto.path"
           :photo="currentPhoto"
           mode="front"
           @swipe-progress="onSwipeProgress"
           @leave-start="onLeaveStart"
           @leave-done="onLeaveDone"
+          @swipe-left="onRecall"
           @double-tap="onFavorite"
           @single-tap="showInfo = true"
         />
@@ -49,7 +61,7 @@
 
     <!-- 底部提示 + 模式切换 -->
     <div class="bottom-hint">
-      <span>{{ mediaType === 'video' ? '上滑删除 · 右滑保留' : '上滑删除 · 双击收藏 · 右滑保留' }}</span>
+      <span>{{ mediaType === 'video' ? '左滑找回 · 上滑删除 · 右滑保留' : '左滑找回 · 上滑删除 · 双击收藏 · 右滑保留' }}</span>
       <div class="mode-toggle">
         <button
           class="mode-btn"
@@ -85,6 +97,11 @@
       :photo="currentPhoto || {}"
       @close="showInfo = false"
     />
+
+    <!-- 找回提示 -->
+    <transition name="fade">
+      <div v-if="recallMsg" class="recall-toast">{{ recallMsg }}</div>
+    </transition>
 
     <!-- 设置入口（左下角齿轮） -->
     <button class="settings-btn" @click="showSettings = true">
@@ -123,6 +140,9 @@ import ImageViewer from './components/ImageViewer.vue'
 
 const currentPhoto = ref(null)
 const nextPhoto = ref(null)
+const skippedPhoto = ref(null) // 右滑跳过的照片（用于召回）
+const isRecalling = ref(false) // 是否正在召回动画中
+const recallProgress = ref(0) // 召回动画进度 0→1
 const isRevealing = ref(false)
 const swipeProgress = ref(0)
 const stats = ref({})
@@ -132,6 +152,7 @@ const showSettings = ref(false)
 const showViewer = ref(false)
 const noPhotos = ref(false)
 const errorMsg = ref('')
+const recallMsg = ref('')
 const loading = ref(false)
 const mediaType = ref('photo') // 'photo' | 'video'
 
@@ -219,6 +240,10 @@ function onLeaveStart() {
 
 // 卡片飞出完成 → 切换到下一张
 async function onLeaveDone(direction) {
+  // 右滑保留：记住这张，用于左滑找回
+  if (direction === 'right' && currentPhoto.value) {
+    skippedPhoto.value = { ...currentPhoto.value }
+  }
   // 上滑删除
   if (direction === 'up' && currentPhoto.value) {
     try {
@@ -240,6 +265,51 @@ async function onLeaveDone(direction) {
     await initPhotos()
   }
   loadStats()
+}
+
+// 左滑找回 - 带放大动画
+function onRecall() {
+  if (!skippedPhoto.value) {
+    showRecallMsg('没有可找回的照片')
+    return
+  }
+  if (isRecalling.value) return
+
+  // 开始召回动画
+  isRecalling.value = true
+  recallProgress.value = 0
+
+  // 用 requestAnimationFrame 做动画，从 scale(0.3) 到 scale(1.0)
+  const duration = 350 // ms
+  const startTime = performance.now()
+
+  function animate(now) {
+    const elapsed = now - startTime
+    const t = Math.min(1, elapsed / duration)
+    // ease-out 缓动
+    const eased = 1 - Math.pow(1 - t, 3)
+    recallProgress.value = eased
+
+    if (t < 1) {
+      requestAnimationFrame(animate)
+    } else {
+      // 动画完成：召回照片成为当前照片，原来的下一张保留在后面
+      const recalled = skippedPhoto.value
+      skippedPhoto.value = null
+      isRecalling.value = false
+      recallProgress.value = 0
+      // 关键：nextPhoto 要变成原来的 currentPhoto，这样用户找回后还能看到第二张
+      nextPhoto.value = currentPhoto.value
+      currentPhoto.value = recalled
+      showRecallMsg('已找回')
+    }
+  }
+  requestAnimationFrame(animate)
+}
+
+function showRecallMsg(msg) {
+  recallMsg.value = msg
+  setTimeout(() => { recallMsg.value = '' }, 1500)
 }
 
 // 收藏 - 双击
@@ -402,5 +472,29 @@ onMounted(() => {
 .view-btn:active {
   background: #f0f0f0;
   transform: translateX(-50%) scale(0.97);
+}
+
+.recall-toast {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  padding: 10px 28px;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 200;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
 }
 </style>
