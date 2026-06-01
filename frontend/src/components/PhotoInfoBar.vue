@@ -66,21 +66,25 @@ function formatSize(bytes) {
 }
 
 .info-filename {
-  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 50vw;
-  color: #333333;
+  color: #999999;
+  font-size: 11px;
 }
 
 .info-sep {
   color: #cccccc;
   flex-shrink: 0;
+  font-size: 11px;
 }
 
 .info-date {
-  color: #888888;
+  color: #333333;
+  font-weight: 600;
   flex-shrink: 0;
+  font-size: 12px;
+  letter-spacing: 0.3px;
 }
 
 .info-sub {
