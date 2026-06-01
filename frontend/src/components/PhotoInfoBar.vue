@@ -35,7 +35,7 @@ function formatSize(bytes) {
 <style scoped>
 .info-bar {
   position: fixed;
-  top: 82px;
+  top: max(38px, calc(env(safe-area-inset-top) + 28px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 50;
@@ -51,6 +51,12 @@ function formatSize(bytes) {
   gap: 3px;
   pointer-events: none;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+
+@media (min-width: 768px) {
+  .info-bar {
+    top: 48px;
+  }
 }
 
 .info-main {

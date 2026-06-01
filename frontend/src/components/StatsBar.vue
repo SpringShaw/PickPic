@@ -41,11 +41,18 @@ function formatSize(bytes) {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 16px;
-  padding-top: max(12px, env(safe-area-inset-top));
+  padding: 6px 16px;
+  padding-top: max(10px, env(safe-area-inset-top));
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+}
+
+@media (min-width: 768px) {
+  .stats-bar {
+    padding: 12px 16px;
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
 }
 
 .stat-item {

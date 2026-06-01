@@ -353,8 +353,14 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 60px 0 40px;
+  padding: max(30px, calc(env(safe-area-inset-top) + 20px)) 0 40px;
   position: relative;
+}
+
+@media (min-width: 768px) {
+  .main-area {
+    padding-top: 36px;
+  }
 }
 
 .bottom-hint {
