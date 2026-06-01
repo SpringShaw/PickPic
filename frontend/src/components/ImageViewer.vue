@@ -55,7 +55,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { getImageUrl } from '../services/api'
+import { getImageUrl, getThumbnailUrl } from '../services/api'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -92,7 +92,14 @@ let isMouseDragging = false
 let mouseStartX = 0
 let mouseStartY = 0
 
-const imageUrl = computed(() => getImageUrl(props.photo.path))
+const imageUrl = computed(() => {
+  // HEIC/HEIF浏览器不支持，用缩略图
+  const name = (props.photo.name || '').toLowerCase()
+  if (name.endsWith('.heic') || name.endsWith('.heif')) {
+    return getThumbnailUrl(props.photo)
+  }
+  return getImageUrl(props.photo.path)
+})
 
 const zoomPercent = computed(() => Math.round(scale.value * 100))
 

@@ -11,6 +11,13 @@ from pathlib import Path
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 
+# 注册HEIC/HEIF格式支持
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except ImportError:
+    pass
+
 from app.config import SUPPORTED_EXTENSIONS, VIDEO_EXTENSIONS, BLACKLIST_DURATION_OPTIONS, NAS_HOST_DIR, THUMBNAIL_DIR, THUMBNAIL_SIZE
 from app.models.database import get_db
 
