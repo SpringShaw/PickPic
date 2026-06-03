@@ -9,17 +9,24 @@ services:
     restart: always
     network_mode: bridge
     ports:
-      - "8082:8082"
+      - "${PORT:-8082}:8082"
     volumes:
-      # 挂载 NAS 根目录到容器（用户在应用设置页面配置具体子目录路径）
-      - /:/nas/host
+      # 图片源目录（宿主机路径，通过 .env 配置）
+      - ${PHOTOS_DIR:-./photos}:/photos:ro
+      # 收藏目录
+      - ${FAVORITES_DIR:-./favorites}:/favorites
+      # 回收站目录
+      - ${RECYCLE_DIR:-./recycle}:/recycle
       # 数据库持久化
       - ./data/db:/app/db
-      # 缩略图持久化（存放在VOL2，不占VOL1空间）
+      # 缩略图持久化
       - ./data/thumbnails:/app/data/thumbnails
     environment:
       - HOST=0.0.0.0
       - PORT=8082
       - DB_DIR=/app/db
-      - DEFAULT_BLACKLIST_DURATION=3y
-      - ENABLE_DUPLICATE_FILTER=true
+      - PHOTOS_DIR=/photos
+      - STAR_DIR=/favorites
+      - RECYCLE_DIR=/recycle
+      - DEFAULT_BLACKLIST_DURATION=${BLACKLIST_DURATION:-3y}
+      - ENABLE_DUPLICATE_FILTER=${ENABLE_DUPLICATE_FILTER:-true}

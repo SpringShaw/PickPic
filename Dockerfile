@@ -27,7 +27,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ .
 
 # 确保目录存在
-RUN mkdir -p /nas/host /app/db
+RUN mkdir -p /photos /favorites /recycle /app/db /app/data/thumbnails
 
 # 暴露端口
 EXPOSE 8082

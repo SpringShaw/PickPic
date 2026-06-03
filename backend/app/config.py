@@ -6,13 +6,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DB_DIR = Path(os.getenv("DB_DIR", "/app/db"))
 DB_PATH = DB_DIR / "photo_sorter.db"
 
-# 容器内挂载的 NAS 根目录
+# 容器内挂载的目录
 NAS_HOST_DIR = Path(os.getenv("NAS_HOST_DIR", "/nas/host"))
 
 # 默认目录（首次启动使用，之后以数据库设置为准）
-DEFAULT_PHOTOS_DIR = os.getenv("PHOTOS_DIR", "")
-DEFAULT_STAR_DIR = os.getenv("STAR_DIR", "")
-DEFAULT_RECYCLE_DIR = os.getenv("RECYCLE_DIR", "")
+DEFAULT_PHOTOS_DIR = os.getenv("PHOTOS_DIR", "/photos")
+DEFAULT_STAR_DIR = os.getenv("STAR_DIR", "/favorites")
+DEFAULT_RECYCLE_DIR = os.getenv("RECYCLE_DIR", "/recycle")
 
 # 服务配置
 HOST = os.getenv("HOST", "0.0.0.0")
