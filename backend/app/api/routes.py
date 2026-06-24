@@ -53,20 +53,30 @@ async def serve_image(path: str = Query(..., max_length=4096)):
     if not img_path.exists():
         raise HTTPException(status_code=404, detail="图片不存在")
 
-    try:
-        img_path.resolve().relative_to(NAS_HOST_DIR.resolve())
-    except ValueError:
-        raise HTTPException(status_code=403, detail="无权访问该路径")
+    # 安全校验：文件必须在已配置的目录内
+    resolved = img_path.resolve()
+    allowed = False
 
-    # Defense-in-depth: also validate against configured photos_dir
+    # 1) 优先校验 photos_dir（Docker 直挂 / 本地开发）
     settings = get_settings()
     photos_dir = settings.get("photos_dir", "")
     if photos_dir:
-        photos_container = _to_container_path(photos_dir)
         try:
-            img_path.resolve().relative_to(Path(photos_container).resolve())
+            resolved.relative_to(Path(_to_container_path(photos_dir)).resolve())
+            allowed = True
         except ValueError:
-            raise HTTPException(status_code=403, detail="无权访问该路径")
+            pass
+
+    # 2) 回退校验 NAS_HOST_DIR（旧 NAS 部署兼容）
+    if not allowed:
+        try:
+            resolved.relative_to(NAS_HOST_DIR.resolve())
+            allowed = True
+        except ValueError:
+            pass
+
+    if not allowed:
+        raise HTTPException(status_code=403, detail="无权访问该路径")
 
     suffix = img_path.suffix.lower()
     mime_map = {
