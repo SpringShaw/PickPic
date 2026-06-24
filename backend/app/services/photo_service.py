@@ -59,16 +59,29 @@ def _gps_to_location(gps: dict) -> str | None:
 
 
 def _to_container_path(user_path: str) -> str:
-    """将用户填写的NAS路径自动转换为容器内路径"""
+    """将用户填写的路径转换为容器内可访问路径
+
+    逻辑：
+    1. 如果原始路径在文件系统中已存在 → 直接返回（兼容 docker-compose 直接挂载）
+    2. 如果路径以 NAS_HOST_DIR 开头 → 直接返回（已是容器路径）
+    3. 否则拼接 NAS_HOST_DIR 前缀（兼容旧 NAS 部署）
+    """
     if not user_path:
         return user_path
     if "\x00" in user_path:
         raise ValueError("路径包含非法字符")
     user_path = user_path.strip()
+
+    # 如果原始路径在容器内已存在，直接返回（无需 NAS_HOST_DIR 前缀）
+    if Path(user_path).exists():
+        return str(Path(user_path).resolve())
+
+    # 如果已包含 NAS_HOST_DIR 前缀
     if user_path.startswith(str(NAS_HOST_DIR)):
         raw = user_path
     else:
         raw = str(NAS_HOST_DIR) + "/" + user_path.lstrip("/")
+
     # Resolve and verify still within NAS_HOST_DIR
     resolved = Path(raw).resolve()
     try:
