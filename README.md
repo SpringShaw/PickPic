@@ -1,87 +1,105 @@
-# 去留 - 相册整理工具
+# 去留 — 相册整理工具
 
-> 📷 1:1 复刻 iOS 热门独立 APP《去留》的算法、手势、UI 视觉、交互逻辑  
-> 纯本地运行，无外网请求，无数据收集，所有数据保存在本地
+[English](./README.en.md) | **简体中文**
 
-## ✨ 功能特性
+> 1:1 复刻 iOS 热门独立 APP《去留》的 Web 版相册整理工具。Tinder 式卡片交互，快决策照片去留。**纯本地运行、无外网请求、无数据收集**，集成随机推送、手势操作（右滑/上滑/双击/左滑找回）、智能黑名单、MD5 去重过滤、缩略图缓存、视频播放、全屏查看、回收站管理、收藏夹、EXIF 解析等全部功能。
 
-- **随机推送**：全局打乱图片，跨文件夹、跨时间、跨地点随机推送
-- **手势操作**：
-  - 右滑 → 保留，切换下一张
-  - 上滑 → 移入回收站（二次确认）
-  - 双击 → 收藏，触发动画
-  - 单击 → 查看图片详情（时间、地点、路径）
-- **左滑找回**：找回上一张右滑跳过的照片
-- **智能屏蔽**：已浏览图片自动加入黑名单，默认 3 年不再推送
-- **去重过滤**：可选开启重复图片自动过滤
-- **数据统计**：实时展示已浏览、已收藏、已清理空间
-- **iOS 极简风**：纯白背景、大面积留白、轻量动画
-- **目录可配**：首次部署后在设置页面配置图片/收藏/回收站目录
-- **视频支持**：视频文件缩略图展示 + 播放
+## 界面预览
 
-## 🎨 设计规范
+> 截图待补充，请将中文界面截图放入 `README.assets/` 目录。
 
-### 配色
+## 功能特性
 
-| 元素 | 颜色 |
-|------|------|
-| 页面背景 | `#FFFFFF` 纯白 |
-| 主要文字 | `#333333` 深灰 |
-| 辅助提示文字 | `#888888` 浅灰 |
-| 收藏爱心 | `#FFB6C1` 淡粉色 |
-| 弹窗底色 | `#F8F8F8` 浅灰白 |
+### 📷 随机推送
+- 全局打乱图片，跨文件夹、跨时间、跨地点随机推送
+- 照片/视频双模式切换，互不干扰
+- 双层卡片架构：当前照片 + 下一张预加载，滑动时背面卡片渐进揭示
 
-### 交互动画（轻量化，低性能消耗）
+### ✋ 手势操作
+- **右滑** → 保留照片，切换下一张
+- **上滑** → 移入回收站（二次确认，可撤销）
+- **双击** → 收藏照片，触发淡粉色爱心动画
+- **单击** → 查看照片详情（时间、地点、路径、分辨率）
+- PC 端鼠标拖拽完全兼容
 
-| 手势 | 动效 |
-|------|------|
-| 上滑删除 | 图片向上滑出 + 淡出 |
-| 右滑保留 | 图片向右平滑滑出 |
-| 左滑找回 | 图片从小到大召回动画 |
-| 双击收藏 | 图片中心淡粉色爱心闪烁反馈 |
-| 弹窗 | iOS 风格圆角极简弹窗 |
+### ↩️ 左滑找回
+- 找回上一张右滑跳过的照片
+- 带 ease-out 缩放动画（0.3 → 1.0），视觉流畅
 
-### UI 组件风格
+### 🚫 智能屏蔽
+- 已浏览图片自动加入黑名单，默认 3 年不重复推送
+- 支持 1 年 / 3 年 / 永久 三档可调
+- 后台增量扫描，新增/删除照片自动感知
 
-- 信息条、按钮等浮层组件使用白色半透明背景 `rgba(255, 255, 255, 0.92)` + `backdrop-filter: blur(12px)`
-- 细微阴影 `box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06)`
-- 圆角统一 12px
-- 不使用深色/黑色半透明背景（与整体纯白风格冲突）
+### 🔄 去重过滤
+- 预计算 MD5 哈希，基于内容指纹自动过滤重复图片
+- 相同照片只推送一次，可选开关
+
+### 🎬 视频支持
+- 7 种视频格式：MP4、MOV、AVI、MKV、WebM、3GP、FLV
+- ffmpeg 提取第一帧做缩略图，ffprobe 读取时长/分辨率
+- 全屏查看器内置 `<video>` 播放控件
+
+### 🔍 全屏查看
+- 单击「放大查看」按钮进入全屏模式
+- 支持双指缩放（0.5x ~ 5x）、双击放大/还原、拖动平移
+- 鼠标滚轮缩放（PC 端）
+
+### 🗑️ 回收站管理
+- 删除的照片移入回收站，非直接删除
+- 支持单张恢复、批量恢复、全部恢复
+- 支持选中永久删除、全部清空（二次确认）
+- 回收站缩略图自动补生成
+
+### ⭐ 收藏夹
+- 双击收藏的照片集中浏览
+- 支持取消收藏、移入回收站
+- 收藏文件自动复制到独立目录
+
+### 📊 数据统计
+- 实时展示已浏览、已收藏、已清理（释放空间 MB）
+- 支持重置黑名单、重置统计数据
+
+### ⚙️ 灵活配置
+- 首次部署后在设置页面配置图片源/收藏/回收站目录
+- 目录路径实时验证（检查是否存在、可写、图片数量）
+- 手动触发全量重新扫描
+
+### 🖼️ 性能优化
+- 400×400 JPEG 缩略图缓存，加载速度 10x+
+- EXIF Orientation 自动方向修正
+- 33K+ 照片秒级随机推送（SQLite 缓存）
+- 扫描期间不阻塞正常浏览
+
+### 🎨 iOS 极简设计
+- 纯白背景 `#FFFFFF`，大面积留白
+- 毛玻璃效果：`rgba(255,255,255,0.92)` + `backdrop-filter: blur(12px)`
+- 轻量动画：弹出/滑出/缩放/淡入淡出
+- 淡粉色收藏爱心 `#FFB6C1`
+- 移动端 + PC 端响应式适配
 
 ## 📦 项目结构
 
 ```
-photo-sorter/
-├── frontend/                # 前端（Vue3 + Vite + TailwindCSS）
-│   ├── src/
-│   │   ├── App.vue          # 主页面
-│   │   ├── components/
-│   │   │   ├── PhotoCard.vue      # 图片卡片（手势交互）
-│   │   │   ├── PhotoInfoBar.vue   # 照片信息条
-│   │   │   ├── StatsBar.vue       # 顶部统计栏
-│   │   │   ├── ImageViewer.vue    # 全屏查看器
-│   │   │   ├── InfoPanel.vue      # 图片信息弹窗
-│   │   │   ├── ConfirmDialog.vue  # 确认弹窗
-│   │   │   ├── SettingsPanel.vue  # 设置面板
-│   │   │   ├── RecyclePanel.vue   # 回收站管理
-│   │   │   └── FavoritesPanel.vue # 收藏夹管理
-│   │   └── services/api.js
-│   └── 构建配置
-├── backend/                 # 后端（Python3 + FastAPI）
-│   ├── app/
-│   │   ├── main.py          # FastAPI 入口
-│   │   ├── config.py        # 配置项
-│   │   ├── models/database.py
-│   │   ├── api/routes.py
-│   │   └── services/photo_service.py
-│   └── requirements.txt
+Photo-Sorter/
+├── frontend/                # Vue3 + Vite + TailwindCSS
+│   └── src/
+│       ├── App.vue          # 主页面（双层卡片架构）
+│       ├── components/      # 9 个组件
+│       ├── services/api.js  # API 封装（15 个接口）
+│       └── utils/           # 共享工具函数
+├── backend/                 # Python3 + FastAPI + SQLite
+│   └── app/
+│       ├── main.py          # FastAPI 入口
+│       ├── config.py        # 配置项
+│       ├── models/          # 数据库模型
+│       ├── api/routes.py    # 19 个 REST API
+│       └── services/        # 核心业务逻辑
 ├── Dockerfile
 ├── docker-compose.yml
 ├── deploy.sh                # 一键部署脚本
-├── .env.example             # 环境变量模板
-├── LICENSE
-├── ROADMAP.md
-└── README.md
+├── ROADMAP.md               # 开发计划
+└── LICENSE                  # MIT
 ```
 
 ## 🚀 快速开始
@@ -89,37 +107,22 @@ photo-sorter/
 ### 方式一：Docker 部署（推荐）
 
 ```bash
-# 1. 克隆项目
 git clone https://github.com/SpringShaw/Photo-Sorter.git
 cd Photo-Sorter
-
-# 2. 配置
 cp .env.example .env
-vim .env
-# 修改 PHOTOS_DIR、FAVORITES_DIR、RECYCLE_DIR 为你的实际路径
-
-# 3. 一键部署
+# 编辑 .env 配置 PHOTOS_DIR、FAVORITES_DIR、RECYCLE_DIR
 chmod +x deploy.sh
 ./deploy.sh
-
-# 4. 访问
 # 浏览器打开 http://localhost:8082
 ```
 
-### 方式二：Docker Compose 手动部署
+### 方式二：Docker Compose
 
 ```bash
-# 1. 配置环境变量
 cp .env.example .env
-# 编辑 .env 配置目录路径
-
-# 2. 创建数据目录
 mkdir -p data/db data/thumbnails
-
-# 3. 构建并启动
 docker compose up -d --build
-
-# 4. 访问 http://localhost:8082
+# 访问 http://localhost:8082
 ```
 
 ### 方式三：本地开发
@@ -138,8 +141,6 @@ npm run dev
 
 ## 🔧 配置说明
 
-### 环境变量（.env）
-
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `PORT` | `8082` | 访问端口 |
@@ -149,58 +150,50 @@ npm run dev
 | `BLACKLIST_DURATION` | `3y` | 黑名单时长：`1y` / `3y` / `forever` |
 | `ENABLE_DUPLICATE_FILTER` | `true` | 重复图片过滤 |
 
-### 目录挂载说明
-
-docker-compose.yml 中的卷映射：
-
-| 容器路径 | 宿主机路径 | 说明 |
-|----------|-----------|------|
-| `/photos` | `.env` 中 `PHOTOS_DIR` | 图片源目录（只读） |
-| `/favorites` | `.env` 中 `FAVORITES_DIR` | 收藏目录 |
-| `/recycle` | `.env` 中 `RECYCLE_DIR` | 回收站目录 |
-| `/app/db` | `./data/db` | SQLite 数据库 |
-| `/app/data/thumbnails` | `./data/thumbnails` | 缩略图缓存 |
-
-### 设置页面
-
-首次打开后，点击左下角 ⚙️ 齿轮进入设置页面，可配置：
-
-- 图片源目录路径
-- 收藏目录路径
-- 回收站目录路径
-- 黑名单时长
-- 重复过滤开关
-
-## 📱 使用说明
+## 📱 手势速查
 
 | 手势 | 操作 |
 |------|------|
-| 右滑 | 保留照片，切换下一张 |
-| 上滑 | 删除照片（移入回收站，可撤销） |
-| 左滑 | 找回上一张跳过的照片 |
-| 双击 | 收藏照片 |
-| 单击 | 查看图片信息 |
-| 放大查看按钮 | 全屏查看，支持双指缩放/拖动 |
+| 右滑 | 保留照片，下一张 |
+| 上滑 | 删除照片（回收站） |
+| 左滑 | 找回上一张 |
+| 双击 | 收藏 |
+| 单击 | 查看信息 |
 
 ## 🛠️ 技术栈
 
-- **前端**：Vue3 + Vite + TailwindCSS
-- **后端**：Python3 + FastAPI + SQLite
-- **容器**：Docker + python:3.11-slim
-- **图片处理**：Pillow + pillow-heif（HEIC 支持）
-- **视频处理**：ffmpeg（缩略图 + 元数据）
+| 层 | 技术 |
+|---|---|
+| 前端 | Vue 3 + Vite + TailwindCSS |
+| 后端 | Python 3 + FastAPI + SQLite |
+| 容器 | Docker + python:3.11-slim |
+| 图片处理 | Pillow + pillow-heif（HEIC） |
+| 视频处理 | ffmpeg（缩略图 + 元数据） |
 
-## 📋 支持的格式
+## 📋 支持格式
 
 | 类型 | 格式 |
 |------|------|
 | 图片 | JPG, JPEG, PNG, WebP, HEIC, HEIF, BMP, GIF, TIFF |
 | 视频 | MP4, MOV, AVI, MKV, WebM, 3GP, FLV |
 
-## 📄 许可证
+## 版本历史
 
-[MIT License](LICENSE) - 纯本地私有化运行，无任何外网依赖。
+查看 [ROADMAP.md](./ROADMAP.md) 了解已完成功能和开发计划。
 
-## 🙏 致谢
+## 特点
+
+- 🔒 纯本地运行，无外网请求，数据完全私有
+- 🐳 Docker 一键部署，5 分钟上手
+- 📱 移动端 + PC 端手势全面适配
+- ⚡ 33K+ 照片秒级随机推送
+- 🎨 iOS 极简风格，轻量动画
+- 🆓 MIT 开源协议
+
+## 许可证
+
+[MIT License](LICENSE)
+
+## 致谢
 
 灵感来源：iOS 独立 APP《去留》

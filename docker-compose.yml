@@ -28,5 +28,6 @@ services:
       - PHOTOS_DIR=/photos
       - STAR_DIR=/favorites
       - RECYCLE_DIR=/recycle
+      - NAS_HOST_DIR=${NAS_HOST_DIR:-/nas/host}
       - DEFAULT_BLACKLIST_DURATION=${BLACKLIST_DURATION:-3y}
       - ENABLE_DUPLICATE_FILTER=${ENABLE_DUPLICATE_FILTER:-true}

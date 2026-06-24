@@ -5,15 +5,15 @@
       <!-- 无图片提示 -->
       <div v-if="noPhotos" class="empty-state">
         <div class="empty-icon">📷</div>
-        <p class="empty-title">暂无可浏览的图片</p>
-        <p class="empty-desc">请确认图片目录已正确挂载</p>
+        <p class="empty-title">{{ t('noPhotos') }}</p>
+        <p class="empty-desc">{{ t('noPhotosHint') }}</p>
       </div>
 
       <!-- 错误提示 -->
       <div v-else-if="errorMsg" class="empty-state">
         <div class="empty-icon">⚠️</div>
         <p class="empty-title">{{ errorMsg }}</p>
-        <button class="retry-btn" @click="initPhotos">重试</button>
+        <button class="retry-btn" @click="initPhotos">{{ t('retry') }}</button>
       </div>
 
       <!-- 双层卡片 -->
@@ -58,19 +58,23 @@
 
     <!-- 底部提示 + 模式切换 -->
     <div class="bottom-hint">
-      <span>{{ mediaType === 'video' ? '上滑删除 · 右滑保留' : '上滑删除 · 双击收藏 · 右滑保留' }}</span>
+      <span>{{ mediaType === 'video' ? t('bottomHintVideo') : t('bottomHintPhoto') }}</span>
       <div class="mode-toggle">
         <button
           class="mode-btn"
           :class="{ active: mediaType === 'photo' }"
           @click="switchMode('photo')"
-        >📷 照片</button>
+        >{{ t('photoMode') }}</button>
         <button
           class="mode-btn"
           :class="{ active: mediaType === 'video' }"
           @click="switchMode('video')"
-        >🎬 视频</button>
+        >{{ t('videoMode') }}</button>
       </div>
+      <!-- 语言切换 -->
+      <button class="lang-btn" :title="t('languageToggleTitle')" @click="toggleLocale">
+        {{ t('languageToggle') }}
+      </button>
     </div>
 
     <!-- 查看原图按钮（底部居中） -->
@@ -85,7 +89,7 @@
         <line x1="11" y1="8" x2="11" y2="14"/>
         <line x1="8" y1="11" x2="14" y2="11"/>
       </svg>
-      <span>放大查看</span>
+      <span>{{ t('zoomView') }}</span>
     </button>
 
     <!-- 统计信息（照片和放大镜之间） -->
@@ -129,14 +133,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { getRandomPhoto, favoritePhoto, deletePhoto, getStats, getSettings } from './services/api'
+import { t, locale, toggleLocale } from './i18n'
 import PhotoCard from './components/PhotoCard.vue'
 import StatsBar from './components/StatsBar.vue'
 import InfoPanel from './components/InfoPanel.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import PhotoInfoBar from './components/PhotoInfoBar.vue'
 import ImageViewer from './components/ImageViewer.vue'
+
+// 同步页面标题
+watch(locale, () => { document.title = t('appTitle') }, { immediate: true })
 
 const currentPhoto = ref(null)
 const nextPhoto = ref(null)
@@ -202,7 +210,7 @@ async function initPhotos() {
     if (e.response?.status === 404) {
       noPhotos.value = true
     } else {
-      errorMsg.value = '加载失败，请检查网络连接'
+      errorMsg.value = t('loadError')
     }
   } finally {
     loading.value = false
@@ -270,7 +278,7 @@ async function onLeaveDone(direction) {
 // 左滑找回 - 带放大动画
 function onRecall() {
   if (!skippedPhoto.value) {
-    showRecallMsg('没有可找回的照片')
+    showRecallMsg(t('noRecall'))
     return
   }
   if (isRecalling.value) return
@@ -301,7 +309,7 @@ function onRecall() {
       // 关键：nextPhoto 要变成原来的 currentPhoto，这样用户找回后还能看到第二张
       nextPhoto.value = currentPhoto.value
       currentPhoto.value = recalled
-      showRecallMsg('已找回')
+      showRecallMsg(t('recalled'))
     }
   }
   requestAnimationFrame(animate)
@@ -396,6 +404,23 @@ onMounted(() => {
   background: #007AFF;
   color: #fff;
   border-color: #007AFF;
+}
+
+.lang-btn {
+  margin-top: 6px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  color: #888;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.lang-btn:hover {
+  border-color: #007AFF;
+  color: #007AFF;
 }
 
 .empty-state {

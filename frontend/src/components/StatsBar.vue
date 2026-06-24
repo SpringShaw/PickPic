@@ -1,17 +1,17 @@
 <template>
   <div class="stats-bar">
     <span class="stat-item">
-      <span class="stat-label">已浏览</span>
+      <span class="stat-label">{{ t('viewed') }}</span>
       <span class="stat-value">{{ stats.viewed_count || 0 }}</span>
     </span>
     <span class="stat-divider">·</span>
     <span class="stat-item">
-      <span class="stat-label">已收藏</span>
+      <span class="stat-label">{{ t('favorited') }}</span>
       <span class="stat-value">{{ stats.favorited_count || 0 }}</span>
     </span>
     <span class="stat-divider">·</span>
     <span class="stat-item">
-      <span class="stat-label">已清理</span>
+      <span class="stat-label">{{ t('cleaned') }}</span>
       <span class="stat-value">{{ formatSize(stats.cleaned_bytes || 0) }}</span>
     </span>
   </div>
@@ -19,6 +19,7 @@
 
 <script setup>
 import { formatSize } from '../utils/format'
+import { t } from '../i18n'
 
 defineProps({
   stats: { type: Object, default: () => ({}) }

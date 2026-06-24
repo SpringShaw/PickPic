@@ -3,19 +3,19 @@
     <div v-if="visible" class="modal-overlay" @mousedown.self="onOverlayMouseDown" @click.self="onOverlayClick">
       <div class="modal-content">
         <div class="modal-header">
-          <span class="modal-title">设置</span>
+          <span class="modal-title">{{ t('settings') }}</span>
           <button class="modal-close" @click="$emit('close')">×</button>
         </div>
         <div class="modal-body">
           <!-- 目录配置 -->
           <div class="setting-group">
-            <div class="setting-label">📂 图片源目录</div>
-            <div class="setting-desc">NAS 上存放照片的文件夹路径</div>
+            <div class="setting-label">{{ t('photosDir') }}</div>
+            <div class="setting-desc">{{ t('photosDirDesc') }}</div>
             <div class="dir-input-row">
               <input
                 class="dir-input"
                 v-model="photosDir"
-                placeholder="例如：/nas/host/共享/photos"
+                :placeholder="t('photosDirPlaceholder')"
                 @blur="checkDir('photos')"
               />
               <span class="dir-status" :class="dirStatus.photos.class">{{ dirStatus.photos.text }}</span>
@@ -23,13 +23,13 @@
           </div>
 
           <div class="setting-group">
-            <div class="setting-label">⭐ 收藏目录</div>
-            <div class="setting-desc">收藏的照片将复制到此目录</div>
+            <div class="setting-label">{{ t('starDir') }}</div>
+            <div class="setting-desc">{{ t('starDirDesc') }}</div>
             <div class="dir-input-row">
               <input
                 class="dir-input"
                 v-model="starDir"
-                placeholder="例如：/nas/host/共享/star_photos"
+                :placeholder="t('starDirPlaceholder')"
                 @blur="checkDir('star')"
               />
               <span class="dir-status" :class="dirStatus.star.class">{{ dirStatus.star.text }}</span>
@@ -37,13 +37,13 @@
           </div>
 
           <div class="setting-group">
-            <div class="setting-label">🗑️ 回收站目录</div>
-            <div class="setting-desc">删除的照片将移动到此目录</div>
+            <div class="setting-label">{{ t('recycleDir') }}</div>
+            <div class="setting-desc">{{ t('recycleDirDesc') }}</div>
             <div class="dir-input-row">
               <input
                 class="dir-input"
                 v-model="recycleDir"
-                placeholder="例如：/nas/host/共享/recycle_photos"
+                :placeholder="t('recycleDirPlaceholder')"
                 @blur="checkDir('recycle')"
               />
               <span class="dir-status" :class="dirStatus.recycle.class">{{ dirStatus.recycle.text }}</span>
@@ -51,14 +51,14 @@
           </div>
 
           <button class="action-btn primary" @click="saveDirs" :disabled="saving">
-            {{ saving ? '保存中...' : '保存目录配置' }}
+            {{ saving ? t('saving') : t('saveDirs') }}
           </button>
 
           <!-- 照片缓存扫描 -->
           <div class="setting-group">
             <div class="setting-row">
               <div>
-                <div class="setting-label">🗄️ 照片缓存</div>
+                <div class="setting-label">{{ t('photoCache') }}</div>
                 <div class="setting-desc">{{ scanStatusText }}</div>
               </div>
               <button
@@ -66,7 +66,7 @@
                 @click="triggerScan"
                 :disabled="scanning"
               >
-                {{ scanning ? '扫描中...' : '重新扫描' }}
+                {{ scanning ? t('scanning') : t('rescan') }}
               </button>
             </div>
           </div>
@@ -75,8 +75,8 @@
 
           <!-- 黑名单时长 -->
           <div class="setting-group">
-            <div class="setting-label">⏱️ 屏蔽时长</div>
-            <div class="setting-desc">已浏览图片的屏蔽期限</div>
+            <div class="setting-label">{{ t('blacklistDuration') }}</div>
+            <div class="setting-desc">{{ t('blacklistDesc') }}</div>
             <div class="setting-options">
               <button
                 v-for="opt in durationOptions"
@@ -94,8 +94,8 @@
           <div class="setting-group">
             <div class="setting-row">
               <div>
-                <div class="setting-label">🔄 重复图片过滤</div>
-                <div class="setting-desc">自动跳过已浏览的相似图片</div>
+                <div class="setting-label">{{ t('dupFilter') }}</div>
+                <div class="setting-desc">{{ t('dupFilterDesc') }}</div>
               </div>
               <button
                 class="toggle-btn"
@@ -112,23 +112,23 @@
           <!-- 操作区 -->
           <div class="setting-group">
             <button class="action-btn primary" @click="showRecycle = true">
-              🗑️ 回收站管理
+              {{ t('recycleManage') }}
             </button>
             <button class="action-btn primary" @click="showFavorites = true">
-              ⭐ 收藏夹
+              {{ t('favoritesManage') }}
             </button>
             <button class="action-btn danger" @click="showResetBlacklistConfirm = true">
-              重置黑名单
+              {{ t('resetBlacklist') }}
             </button>
             <button class="action-btn danger" @click="showResetStatsConfirm = true">
-              重置统计数据
+              {{ t('resetStats') }}
             </button>
           </div>
 
           <!-- 底部信息 -->
           <div class="footer-info">
-            <p>去留 v1.0 · 纯本地运行</p>
-            <p>所有数据均保存在 NAS 本地</p>
+            <p>{{ t('footerVersion') }}</p>
+            <p>{{ t('footerLocal') }}</p>
           </div>
         </div>
       </div>
@@ -138,13 +138,13 @@
   <!-- 确认弹窗 -->
   <ConfirmDialog
     :visible="showResetBlacklistConfirm"
-    message="确定要重置黑名单吗？所有已浏览图片将重新出现。"
+    :message="t('confirmResetBlacklist')"
     @confirm="handleResetBlacklist"
     @cancel="showResetBlacklistConfirm = false"
   />
   <ConfirmDialog
     :visible="showResetStatsConfirm"
-    message="确定要重置统计数据吗？浏览、收藏、清理记录将清零。"
+    :message="t('confirmResetStats')"
     @confirm="handleResetStats"
     @cancel="showResetStatsConfirm = false"
   />
@@ -164,6 +164,7 @@
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { updateSetting as apiUpdateSetting, resetBlacklist, resetStats, getSettings, triggerScan as apiTriggerScan, getScanStatus } from '../services/api'
 import { useOverlayClose } from '../utils/overlayClose'
+import { t } from '../i18n'
 import ConfirmDialog from './ConfirmDialog.vue'
 import RecyclePanel from './RecyclePanel.vue'
 import FavoritesPanel from './FavoritesPanel.vue'
@@ -186,10 +187,24 @@ const photosDir = ref('')
 const starDir = ref('')
 const recycleDir = ref('')
 
-const dirStatus = ref({
-  photos: { text: '', class: '' },
-  star: { text: '', class: '' },
-  recycle: { text: '', class: '' },
+// 原始目录检查结果（不含翻译文本）
+const dirRaw = ref({
+  photos: { state: '', count: 0 },
+  star: { state: '', count: 0 },
+  recycle: { state: '', count: 0 },
+})
+
+// 响应式计算目录状态显示文本（locale 变化时自动更新）
+const dirStatus = computed(() => {
+  function fmt(type) {
+    const raw = dirRaw.value[type]
+    if (!raw.state) return { text: t('dirNotSet'), class: 'status-empty' }
+    if (raw.state === 'ok') return { text: `${t('dirCheckPrefix')} ${t('dirOkPhotos', { count: raw.count })}`, class: 'status-ok' }
+    if (raw.state === 'empty') return { text: `${t('dirCheckPrefix')} ${t('dirExistsEmpty')}`, class: 'status-warn' }
+    if (raw.state === 'missing') return { text: `${t('dirCheckFail')} ${t('dirNotExists')}`, class: 'status-error' }
+    return { text: t('dirVerifyFailed'), class: 'status-error' }
+  }
+  return { photos: fmt('photos'), star: fmt('star'), recycle: fmt('recycle') }
 })
 
 const scanning = ref(false)
@@ -199,40 +214,43 @@ let scanTimer = null
 const scanStatusText = computed(() => {
   const s = scanStatus.value
   if (s.status === 'scanning') {
-    return `扫描中... ${s.processed}/${s.total} (新增 ${s.new_count})`
+    return t('scanStatusScanning', { processed: s.processed, total: s.total, newCount: s.new_count })
   }
   if (s.status === 'idle' && s.total > 0) {
-    return `已缓存 ${s.total} 张照片 · 新增 ${s.new_count}`
+    return t('scanStatusCached', { total: s.total, newCount: s.new_count })
   }
-  return '未扫描（启动时自动扫描）'
+  return t('scanStatusIdle')
 })
 
 async function triggerScan() {
   scanning.value = true
   try {
     await apiTriggerScan(true)
-    // 开始轮询状态
-    scanTimer = setInterval(async () => {
-      try {
-        const res = await getScanStatus()
-        if (res.success) {
-          scanStatus.value = res.data
-          if (res.data.status !== 'scanning') {
-            clearInterval(scanTimer)
-            scanTimer = null
-            scanning.value = false
-            emit('updated')
-          }
-        }
-      } catch (e) {
-        clearInterval(scanTimer)
-        scanTimer = null
-        scanning.value = false
-      }
-    }, 2000)
+    startPolling()
   } catch (e) {
     scanning.value = false
   }
+}
+
+function startPolling() {
+  scanTimer = setInterval(async () => {
+    try {
+      const res = await getScanStatus()
+      if (res.success) {
+        scanStatus.value = res.data
+        if (res.data.status !== 'scanning') {
+          clearInterval(scanTimer)
+          scanTimer = null
+          scanning.value = false
+          emit('updated')
+        }
+      }
+    } catch (e) {
+      clearInterval(scanTimer)
+      scanTimer = null
+      scanning.value = false
+    }
+  }, 2000)
 }
 
 async function loadScanStatus() {
@@ -242,7 +260,7 @@ async function loadScanStatus() {
       scanStatus.value = res.data
       if (res.data.status === 'scanning') {
         scanning.value = true
-        triggerScan() // 继续轮询
+        startPolling() // 仅恢复轮询，不重复发起扫描
       }
     }
   } catch (e) {}
@@ -260,11 +278,11 @@ watch(() => props.visible, (val) => {
   }
 })
 
-const durationOptions = [
-  { label: '1年', value: '1y' },
-  { label: '3年', value: '3y' },
-  { label: '永久', value: 'forever' },
-]
+const durationOptions = computed(() => [
+  { label: t('oneYear'), value: '1y' },
+  { label: t('threeYears'), value: '3y' },
+  { label: t('forever'), value: 'forever' },
+])
 
 // 监听设置变化，同步目录值
 watch(() => props.settings, (val) => {
@@ -278,7 +296,7 @@ watch(() => props.settings, (val) => {
 async function checkDir(type) {
   const path = type === 'photos' ? photosDir.value : type === 'star' ? starDir.value : recycleDir.value
   if (!path) {
-    dirStatus.value[type] = { text: '未填写', class: 'status-empty' }
+    dirRaw.value[type] = { state: '', count: 0 }
     return
   }
   try {
@@ -287,15 +305,15 @@ async function checkDir(type) {
     if (data.success) {
       const info = data.data
       if (info.exists && info.photo_count > 0) {
-        dirStatus.value[type] = { text: `✓ ${info.photo_count} 张图片`, class: 'status-ok' }
+        dirRaw.value[type] = { state: 'ok', count: info.photo_count }
       } else if (info.exists) {
-        dirStatus.value[type] = { text: '✓ 目录存在（无图片）', class: 'status-warn' }
+        dirRaw.value[type] = { state: 'empty', count: 0 }
       } else {
-        dirStatus.value[type] = { text: '✗ 目录不存在', class: 'status-error' }
+        dirRaw.value[type] = { state: 'missing', count: 0 }
       }
     }
   } catch (e) {
-    dirStatus.value[type] = { text: '验证失败', class: 'status-error' }
+    dirRaw.value[type] = { state: 'error', count: 0 }
   }
 }
 
@@ -350,57 +368,7 @@ async function handleResetStats() {
 </script>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: #F8F8F8;
-  width: 100%;
-  max-width: 500px;
-  border-radius: 16px 16px 0 0;
-  max-height: 85vh;
-  overflow-y: auto;
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid #eee;
-  position: sticky;
-  top: 0;
-  background: #F8F8F8;
-  z-index: 1;
-}
-
-.modal-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  font-size: 24px;
-  color: #999;
-  cursor: pointer;
-}
-
-.modal-body {
-  padding: 16px 20px 32px;
-}
+@import '../styles/modal.css';
 
 .setting-group {
   background: #fff;
@@ -579,30 +547,4 @@ async function handleResetStats() {
   line-height: 1.6;
 }
 
-.modal-fade-enter-active {
-  transition: opacity 0.2s ease;
-}
-.modal-fade-leave-active {
-  transition: opacity 0.15s ease;
-}
-.modal-fade-enter-from,
-.modal-fade-leave-to {
-  opacity: 0;
-}
-
-.modal-fade-enter-active .modal-content {
-  animation: slide-up 0.25s ease-out;
-}
-.modal-fade-leave-active .modal-content {
-  animation: slide-down 0.15s ease-in;
-}
-
-@keyframes slide-up {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-@keyframes slide-down {
-  from { transform: translateY(0); }
-  to { transform: translateY(100%); }
-}
 </style>

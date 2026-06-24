@@ -4,8 +4,8 @@
       <div class="confirm-box">
         <p class="confirm-text">{{ message }}</p>
         <div class="confirm-actions">
-          <button class="btn-cancel" @click="$emit('cancel')">取消</button>
-          <button class="btn-confirm" @click="$emit('confirm')">确定</button>
+          <button class="btn-cancel" @click="$emit('cancel')">{{ t('cancel') }}</button>
+          <button class="btn-confirm" @click="$emit('confirm')">{{ t('confirm') }}</button>
         </div>
       </div>
     </div>
@@ -14,10 +14,11 @@
 
 <script setup>
 import { useOverlayClose } from '../utils/overlayClose'
+import { t } from '../i18n'
 
 defineProps({
   visible: { type: Boolean, default: false },
-  message: { type: String, default: '确认操作？' }
+  message: { type: String, default: 'Confirm?' }
 })
 
 const emit = defineEmits(['confirm', 'cancel'])

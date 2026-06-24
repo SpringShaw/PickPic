@@ -55,6 +55,8 @@
 <script setup>
 import { ref, computed, onUnmounted } from 'vue'
 import { getThumbnailUrl } from '../services/api'
+import { t } from '../i18n'
+import { formatDuration } from '../utils/format'
 
 const props = defineProps({
   photo: { type: Object, required: true },
@@ -86,13 +88,7 @@ const imageUrl = computed(() => getThumbnailUrl(props.photo))
 
 const isVideo = computed(() => props.photo.media_type === 'video')
 
-const durationText = computed(() => {
-  const d = props.photo.duration
-  if (!d) return ''
-  const min = Math.floor(d / 60)
-  const sec = Math.floor(d % 60)
-  return `${min}:${sec.toString().padStart(2, '0')}`
-})
+const durationText = computed(() => formatDuration(props.photo.duration))
 
 const cardStyle = computed(() => {
   if (props.mode === 'back') {
@@ -133,9 +129,9 @@ const indicatorClass = computed(() => {
 })
 
 const indicatorText = computed(() => {
-  if (indicatorType.value === 'right') return '保留'
-  if (indicatorType.value === 'left') return '找回'
-  if (indicatorType.value === 'up') return '删除'
+  if (indicatorType.value === 'right') return t('keep')
+  if (indicatorType.value === 'left') return t('recall')
+  if (indicatorType.value === 'up') return t('deleteSwipe')
   return ''
 })
 

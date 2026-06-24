@@ -1,5 +1,7 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from fastapi.responses import FileResponse
+import re
+import logging
 import time
 from pathlib import Path
 
@@ -13,7 +15,9 @@ from app.services.photo_service import (
     get_deleted_photos, restore_photo, restore_all_photos,
     empty_recycle
 )
-from app.config import BLACKLIST_DURATION_OPTIONS, NAS_HOST_DIR
+from app.config import BLACKLIST_DURATION_OPTIONS, NAS_HOST_DIR, THUMBNAIL_DIR
+
+logger = logging.getLogger("photo-sorter")
 
 router = APIRouter(prefix="/api")
 
@@ -42,7 +46,7 @@ async def random_photo(media_type: str = "photo"):
 
 
 @router.get("/photo/image")
-async def serve_image(path: str):
+async def serve_image(path: str = Query(..., max_length=4096)):
     """提供图片文件"""
     container_path = _to_container_path(path)
     img_path = Path(container_path)
@@ -53,6 +57,16 @@ async def serve_image(path: str):
         img_path.resolve().relative_to(NAS_HOST_DIR.resolve())
     except ValueError:
         raise HTTPException(status_code=403, detail="无权访问该路径")
+
+    # Defense-in-depth: also validate against configured photos_dir
+    settings = get_settings()
+    photos_dir = settings.get("photos_dir", "")
+    if photos_dir:
+        photos_container = _to_container_path(photos_dir)
+        try:
+            img_path.resolve().relative_to(Path(photos_container).resolve())
+        except ValueError:
+            raise HTTPException(status_code=403, detail="无权访问该路径")
 
     suffix = img_path.suffix.lower()
     mime_map = {
@@ -73,7 +87,13 @@ async def serve_image(path: str):
 @router.get("/photo/thumbnail/{file_hash}")
 async def serve_thumbnail(file_hash: str):
     """提供缩略图文件"""
+    if not re.fullmatch(r'[a-fA-F0-9]+', file_hash):
+        raise HTTPException(status_code=400, detail="无效的哈希值")
     thumb_path = _get_thumb_path(file_hash)
+    try:
+        thumb_path.resolve().relative_to(THUMBNAIL_DIR.resolve())
+    except ValueError:
+        raise HTTPException(status_code=403, detail="无权访问")
     if not thumb_path.exists():
         raise HTTPException(status_code=404, detail="缩略图不存在")
     return FileResponse(str(thumb_path), media_type="image/jpeg")
@@ -87,8 +107,13 @@ async def list_favorites():
 
 
 @router.post("/favorites/unfavorite")
-async def unfavorite(file_path: str):
+async def unfavorite(file_path: str = Query(..., max_length=4096)):
     """取消收藏"""
+    try:
+        _validate_path_in_dir(_to_container_path(file_path), "star")
+    except ValueError as e:
+        logger.warning("路径验证失败: %s", e)
+        raise HTTPException(status_code=403, detail="无权访问该路径")
     result = unfavorite_photo(_to_container_path(file_path))
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -96,8 +121,13 @@ async def unfavorite(file_path: str):
 
 
 @router.delete("/favorites/delete")
-async def delete_fav(file_path: str):
+async def delete_fav(file_path: str = Query(..., max_length=4096)):
     """从收藏夹删除（移入回收站）"""
+    try:
+        _validate_path_in_dir(_to_container_path(file_path), "star")
+    except ValueError as e:
+        logger.warning("路径验证失败: %s", e)
+        raise HTTPException(status_code=403, detail="无权访问该路径")
     result = delete_favorite_photo(_to_container_path(file_path))
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -105,12 +135,13 @@ async def delete_fav(file_path: str):
 
 
 @router.post("/photo/favorite")
-async def favorite(file_path: str):
+async def favorite(file_path: str = Query(..., max_length=4096)):
     """收藏图片"""
     try:
         _validate_path_in_dir(_to_container_path(file_path), "photos")
     except ValueError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        logger.warning("路径验证失败: %s", e)
+        raise HTTPException(status_code=403, detail="无权访问该路径")
     result = favorite_photo(_to_container_path(file_path))
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -118,12 +149,13 @@ async def favorite(file_path: str):
 
 
 @router.post("/photo/delete")
-async def delete(file_path: str):
+async def delete(file_path: str = Query(..., max_length=4096)):
     """删除图片（移入回收站）"""
     try:
         _validate_path_in_dir(_to_container_path(file_path), "photos")
     except ValueError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        logger.warning("路径验证失败: %s", e)
+        raise HTTPException(status_code=403, detail="无权访问该路径")
     result = delete_photo(_to_container_path(file_path))
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -164,17 +196,21 @@ async def api_get_settings():
 
 
 @router.post("/settings")
-async def api_update_settings(key: str, value: str):
+async def api_update_settings(key: str = Query(..., max_length=128), value: str = Query(..., max_length=4096)):
     """更新设置"""
     allowed_keys = {"blacklist_duration", "enable_duplicate_filter", "photos_dir", "star_dir", "recycle_dir"}
     if key not in allowed_keys:
         raise HTTPException(status_code=400, detail=f"不允许修改设置: {key}")
+    if key == "blacklist_duration" and value not in BLACKLIST_DURATION_OPTIONS:
+        raise HTTPException(status_code=400, detail=f"无效的黑名单时长: {value}")
+    if key == "enable_duplicate_filter" and value not in ("true", "false"):
+        raise HTTPException(status_code=400, detail="enable_duplicate_filter 必须为 true 或 false")
     update_setting(key, value)
     return {"success": True, "message": f"设置 {key} 已更新为 {value}"}
 
 
 @router.get("/dir/check")
-async def check_directory(path: str):
+async def check_directory(path: str = Query(..., max_length=4096)):
     """验证目录路径是否可用"""
     info = get_directory_info(path)
     return {"success": True, "data": info}
@@ -202,9 +238,15 @@ async def api_recycle_list():
 
 
 @router.post("/recycle/restore")
-async def api_recycle_restore(file_path: str):
+async def api_recycle_restore(file_path: str = Query(..., max_length=4096)):
     """从回收站恢复照片到源目录"""
-    result = restore_photo(file_path)
+    container_path = _to_container_path(file_path)
+    try:
+        _validate_path_in_dir(container_path, "recycle")
+    except ValueError as e:
+        logger.warning("路径验证失败: %s", e)
+        raise HTTPException(status_code=403, detail="无权访问该路径")
+    result = restore_photo(container_path)
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
     return result
@@ -218,13 +260,14 @@ async def api_recycle_restore_all():
 
 
 @router.delete("/recycle/delete")
-async def api_recycle_delete(file_path: str):
+async def api_recycle_delete(file_path: str = Query(..., max_length=4096)):
     """永久删除回收站中的单条记录"""
     container_path = _to_container_path(file_path)
     try:
         _validate_path_in_dir(container_path, "recycle")
     except ValueError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        logger.warning("路径验证失败: %s", e)
+        raise HTTPException(status_code=403, detail="无权访问该路径")
     p = Path(container_path)
     if not p.exists():
         raise HTTPException(status_code=404, detail="文件不存在")
@@ -242,7 +285,8 @@ async def api_recycle_delete(file_path: str):
         db.close()
         return {"success": True, "message": "已永久删除"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("永久删除文件失败: %s", e)
+        raise HTTPException(status_code=500, detail="删除失败，请稍后重试")
 
 
 @router.delete("/recycle/empty")

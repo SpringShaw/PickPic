@@ -62,10 +62,20 @@ def _to_container_path(user_path: str) -> str:
     """将用户填写的NAS路径自动转换为容器内路径"""
     if not user_path:
         return user_path
+    if "\x00" in user_path:
+        raise ValueError("路径包含非法字符")
     user_path = user_path.strip()
     if user_path.startswith(str(NAS_HOST_DIR)):
-        return user_path
-    return str(NAS_HOST_DIR) + "/" + user_path.lstrip("/")
+        raw = user_path
+    else:
+        raw = str(NAS_HOST_DIR) + "/" + user_path.lstrip("/")
+    # Resolve and verify still within NAS_HOST_DIR
+    resolved = Path(raw).resolve()
+    try:
+        resolved.relative_to(Path(NAS_HOST_DIR).resolve())
+    except ValueError:
+        raise ValueError("路径超出允许范围")
+    return str(resolved)
 
 
 def _to_nas_path(container_path: str) -> str:
@@ -111,8 +121,8 @@ def get_exif_data(img_path: Path) -> dict:
                 if tag == "DateTimeOriginal":
                     try:
                         exif_info["date"] = value
-                    except:
-                        pass
+                    except Exception:
+                        logger.debug("EXIF日期解析失败: %s", Path(img_path).name)
                 elif tag == "GPSInfo":
                     gps_data = {}
                     for gps_tag_id in value:
@@ -127,7 +137,7 @@ def get_exif_data(img_path: Path) -> dict:
                             lng = -lng
                         exif_info["gps"] = {"lat": round(lat, 6), "lng": round(lng, 6)}
     except Exception as e:
-        logger.warning("EXIF解析失败: %s, 错误: %s", img_path, e)
+        logger.warning("EXIF解析失败: %s, 错误: %s", Path(img_path).name, e)
     return exif_info
 
 
@@ -145,7 +155,7 @@ def compute_file_hash(file_path: Path) -> str:
             for chunk in iter(lambda: f.read(8192), b""):
                 hash_md5.update(chunk)
     except Exception as e:
-        logger.warning("计算哈希失败: %s, 错误: %s", file_path, e)
+        logger.warning("计算哈希失败: %s, 错误: %s", Path(file_path).name, e)
         return ""
     return hash_md5.hexdigest()
 
@@ -165,7 +175,7 @@ def generate_thumbnail(img_path: Path, thumb_path: Path) -> bool:
         img.save(str(thumb_path), "JPEG", quality=80, optimize=True)
         return True
     except Exception as e:
-        logger.warning("缩略图生成失败: %s, 错误: %s", img_path, e)
+        logger.warning("缩略图生成失败: %s, 错误: %s", Path(img_path).name, e)
         return False
 
 
@@ -191,7 +201,7 @@ def generate_video_thumbnail(video_path: Path, thumb_path: Path) -> bool:
         )
         return result.returncode == 0 and thumb_path.exists()
     except Exception as e:
-        logger.warning("视频缩略图生成失败: %s, 错误: %s", video_path, e)
+        logger.warning("视频缩略图生成失败: %s, 错误: %s", Path(video_path).name, e)
         return False
 
 
@@ -224,7 +234,7 @@ def get_video_metadata(video_path: Path) -> dict:
                 break
         return meta
     except Exception as e:
-        logger.warning("视频元数据提取失败: %s, 错误: %s", video_path, e)
+        logger.warning("视频元数据提取失败: %s, 错误: %s", Path(video_path).name, e)
         return {}
 
 
@@ -436,12 +446,12 @@ def scan_and_cache(force: bool = False) -> dict:
     except Exception as e:
         logger.exception("扫描异常: %s", e)
         try:
-            db = get_db()
-            db.execute("UPDATE scan_status SET status='error' WHERE id=1")
-            db.commit()
-            db.close()
-        except:
-            pass
+            recovery_db = get_db()
+            recovery_db.execute("UPDATE scan_status SET status='error' WHERE id=1")
+            recovery_db.commit()
+            recovery_db.close()
+        except Exception as recovery_err:
+            logger.error("扫描错误状态更新失败: %s", recovery_err)
         return {"status": "error", "message": str(e)}
     finally:
         _scan_lock.release()
@@ -491,24 +501,26 @@ def get_random_photo(blacklist_duration_key: str = "3y", enable_duplicate_filter
     ).fetchall()
     blacklisted_paths = {r["file_path"] for r in rows}
 
-    media_filter = "media_type = ?"
-
+    # Safeguard: SQLite max 999 parameters; chunk if needed
+    MAX_PARAMS = 900
     if enable_duplicate_filter:
         blacklisted_hashes = {r["file_hash"] for r in rows if r["file_hash"]}
+        if len(blacklisted_hashes) > MAX_PARAMS:
+            blacklisted_hashes = set(list(blacklisted_hashes)[:MAX_PARAMS])
         if blacklisted_hashes:
             placeholders = ",".join("?" * len(blacklisted_hashes))
             candidates = db.execute(
-                f"SELECT * FROM photos WHERE status='active' AND {media_filter} AND file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?) AND (file_hash IS NULL OR file_hash NOT IN ({placeholders}))",
+                "SELECT * FROM photos WHERE status='active' AND media_type = ? AND file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?) AND (file_hash IS NULL OR file_hash NOT IN (" + placeholders + "))",
                 [media_type, now] + list(blacklisted_hashes)
             ).fetchall()
         else:
             candidates = db.execute(
-                f"SELECT * FROM photos WHERE status='active' AND {media_filter} AND file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?)",
+                "SELECT * FROM photos WHERE status='active' AND media_type = ? AND file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?)",
                 (media_type, now)
             ).fetchall()
     else:
         candidates = db.execute(
-            f"SELECT * FROM photos WHERE status='active' AND {media_filter} AND file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?)",
+            "SELECT * FROM photos WHERE status='active' AND media_type = ? AND file_path NOT IN (SELECT file_path FROM blacklist WHERE expires_at > ?)",
             (media_type, now)
         ).fetchall()
 
@@ -616,7 +628,8 @@ def favorite_photo(file_path: str) -> dict:
         db.close()
         return {"success": True, "dest": str(dest)}
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        logger.error("收藏失败: %s, 错误: %s", Path(file_path).name, e)
+        return {"success": False, "error": "收藏失败，请稍后重试"}
 
 
 def delete_photo(file_path: str) -> dict:
@@ -658,7 +671,8 @@ def delete_photo(file_path: str) -> dict:
         db.close()
         return {"success": True, "dest": str(dest), "cleaned_bytes": file_size}
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        logger.error("删除失败: %s, 错误: %s", Path(file_path).name, e)
+        return {"success": False, "error": "删除失败，请稍后重试"}
 
 
 def get_stats() -> dict:
@@ -707,7 +721,8 @@ def restore_photo(file_path: str) -> dict:
         db.close()
         return {"success": True, "dest": str(dest), "message": f"已恢复到 {photos_dir.name}/"}
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        logger.error("恢复失败: %s, 错误: %s", Path(file_path).name, e)
+        return {"success": False, "error": "恢复失败，请稍后重试"}
 
 
 def restore_all_photos() -> dict:
@@ -721,6 +736,7 @@ def restore_all_photos() -> dict:
     rows = db.execute("SELECT file_path FROM photos WHERE status='deleted'").fetchall()
     photos_dir.mkdir(parents=True, exist_ok=True)
     restored = 0
+    failed = 0
     for row in rows:
         src = Path(row["file_path"])
         if not src.exists():
@@ -738,10 +754,15 @@ def restore_all_photos() -> dict:
             )
             restored += 1
         except Exception:
+            failed += 1
+            logger.warning("恢复失败: %s", Path(row['file_path']).name, exc_info=True)
             continue
     db.commit()
     db.close()
-    return {"success": True, "restored": restored, "message": f"已恢复 {restored} 张照片"}
+    msg = f"已恢复 {restored} 张照片"
+    if failed:
+        msg += f"，{failed} 张恢复失败"
+    return {"success": True, "restored": restored, "failed": failed, "message": msg}
 
 
 def get_deleted_photos() -> list:
@@ -832,8 +853,9 @@ def unfavorite_photo(file_path: str) -> dict:
         db.close()
         return {"success": True}
     except Exception as e:
+        logger.error("取消收藏失败: %s, 错误: %s", Path(file_path).name, e)
         db.close()
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": "操作失败，请稍后重试"}
 
 
 def delete_favorite_photo(file_path: str) -> dict:
@@ -914,7 +936,7 @@ def empty_recycle() -> dict:
                 cleaned_bytes += row["file_size"] or 0
             deleted += 1
         except Exception as e:
-            logger.warning("清空回收站删除文件失败: %s, 错误: %s", row['file_path'], e)
+            logger.warning("清空回收站删除文件失败: %s, 错误: %s", Path(row['file_path']).name, e)
     db.execute("DELETE FROM photos WHERE status='deleted'")
     db.execute(
         "UPDATE stats SET deleted_count=MAX(0, deleted_count-?), cleaned_bytes=MAX(0, cleaned_bytes-?), last_updated=? WHERE id=1",

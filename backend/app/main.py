@@ -3,9 +3,10 @@ FastAPI 主入口
 """
 import logging
 import threading
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from pathlib import Path
 
 from app.api.routes import router
@@ -21,6 +22,15 @@ logging.basicConfig(
 logger = logging.getLogger("photo-sorter")
 
 app = FastAPI(title="去留 - 相册整理工具", version="2.0.0")
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception("未处理的异常: %s", exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "服务器内部错误，请稍后重试"}
+    )
 
 # CORS（本地 NAS 工具，允许同源及局域网访问）
 app.add_middleware(
@@ -42,11 +52,11 @@ async def startup():
     THUMBNAIL_DIR.mkdir(parents=True, exist_ok=True)
     init_db()
     logger.info("去留 相册整理工具已启动 (v2.0 - 缓存+缩略图)")
-    logger.info("默认图片目录: %s", DEFAULT_PHOTOS_DIR or '(请在设置中配置)')
-    logger.info("默认收藏目录: %s", DEFAULT_STAR_DIR or '(请在设置中配置)')
-    logger.info("默认回收站: %s", DEFAULT_RECYCLE_DIR or '(请在设置中配置)')
-    logger.info("数据库: %s", DB_DIR)
-    logger.info("缩略图: %s", THUMBNAIL_DIR)
+    logger.info("默认图片目录: %s", Path(DEFAULT_PHOTOS_DIR).name if DEFAULT_PHOTOS_DIR else '(请在设置中配置)')
+    logger.info("默认收藏目录: %s", Path(DEFAULT_STAR_DIR).name if DEFAULT_STAR_DIR else '(请在设置中配置)')
+    logger.info("默认回收站: %s", Path(DEFAULT_RECYCLE_DIR).name if DEFAULT_RECYCLE_DIR else '(请在设置中配置)')
+    logger.debug("数据库: %s", DB_DIR)
+    logger.debug("缩略图: %s", THUMBNAIL_DIR)
 
     # 后台启动首次扫描
     def _background_scan():

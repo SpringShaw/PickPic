@@ -19,7 +19,7 @@ export function getImageUrl(filePath) {
 // 获取缩略图URL（优先使用缩略图，更快）
 export function getThumbnailUrl(photo) {
   if (photo.file_hash) {
-    return `/api/photo/thumbnail/${photo.file_hash}`
+    return `/api/photo/thumbnail/${encodeURIComponent(photo.file_hash)}`
   }
   // 回退到原图
   return getImageUrl(photo.path)
