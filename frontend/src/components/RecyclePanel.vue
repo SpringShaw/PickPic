@@ -1,6 +1,6 @@
 <template>
   <transition name="modal-fade">
-    <div v-if="visible" class="modal-overlay" @click.self="$emit('close')">
+    <div v-if="visible" class="modal-overlay" @mousedown.self="onOverlayMouseDown" @click.self="onOverlayClick">
       <div class="modal-content">
         <div class="modal-header">
           <span class="modal-title">🗑️ 回收站</span>
@@ -115,6 +115,8 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { getRecycleList, restorePhoto, restoreAllPhotos, deleteRecycleItem, emptyRecycle } from '../services/api'
+import { formatSize } from '../utils/format'
+import { useOverlayClose } from '../utils/overlayClose'
 import ConfirmDialog from './ConfirmDialog.vue'
 
 const props = defineProps({
@@ -122,6 +124,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'restored'])
+const { onOverlayMouseDown, onOverlayClick } = useOverlayClose(() => emit('close'))
 
 const loading = ref(false)
 const photos = ref([])
@@ -135,13 +138,6 @@ const resultType = ref('')
 function getThumbUrl(photo) {
   if (photo.thumb_url) return photo.thumb_url
   return ''
-}
-
-function formatSize(bytes) {
-  if (!bytes) return ''
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB'
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
 function toggleSelect(path) {

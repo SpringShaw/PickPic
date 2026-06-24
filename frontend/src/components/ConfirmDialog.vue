@@ -1,6 +1,6 @@
 <template>
   <transition name="modal-fade">
-    <div v-if="visible" class="modal-overlay" @click.self="$emit('cancel')">
+    <div v-if="visible" class="modal-overlay" @mousedown.self="onOverlayMouseDown" @click.self="onOverlayClick">
       <div class="confirm-box">
         <p class="confirm-text">{{ message }}</p>
         <div class="confirm-actions">
@@ -13,12 +13,15 @@
 </template>
 
 <script setup>
+import { useOverlayClose } from '../utils/overlayClose'
+
 defineProps({
   visible: { type: Boolean, default: false },
   message: { type: String, default: '确认操作？' }
 })
 
-defineEmits(['confirm', 'cancel'])
+const emit = defineEmits(['confirm', 'cancel'])
+const { onOverlayMouseDown, onOverlayClick } = useOverlayClose(() => emit('cancel'))
 </script>
 
 <style scoped>

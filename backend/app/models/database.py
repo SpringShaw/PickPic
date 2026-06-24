@@ -1,26 +1,54 @@
 """
-数据库模型 - SQLite
+数据库模型 - SQLite（支持上下文管理器）
 """
 import sqlite3
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from app.config import DB_PATH, DB_DIR
 
 
-def get_db():
-    """获取数据库连接"""
+def _create_connection():
+    """创建数据库连接（内部使用）"""
     DB_DIR.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
-    conn.execute("PRAGMA busy_timeout=5000")  # 等待锁释放，避免 database locked
+    conn.execute("PRAGMA busy_timeout=5000")
     return conn
+
+
+def get_db():
+    """获取数据库连接（建议使用 with get_db() as db: 上下文管理器）
+
+    兼容旧用法：db = get_db(); ...; db.close()
+    """
+    return _create_connection()
+
+
+@contextmanager
+def get_db_ctx():
+    """数据库连接上下文管理器 — 自动 commit 和 close
+
+    用法:
+        with get_db_ctx() as db:
+            db.execute("SELECT ...")
+    """
+    conn = _create_connection()
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def init_db():
     """初始化数据库表"""
-    conn = get_db()
+    conn = _create_connection()
     cursor = conn.cursor()
 
     # 黑名单表 - 已浏览的图片
@@ -65,7 +93,7 @@ def init_db():
         )
     """)
 
-    # 照片缓存表（新增）
+    # 照片缓存表
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS photos (
             file_path TEXT PRIMARY KEY,
@@ -88,7 +116,7 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_photos_hash ON photos(file_hash)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_photos_dir ON photos(dir)")
 
-    # 兼容旧数据库：给 photos 表加 status / deleted_at 列（如果缺失）
+    # 兼容旧数据库：添加缺失列
     cursor.execute("PRAGMA table_info(photos)")
     photo_columns = {row[1] for row in cursor.fetchall()}
     if 'status' not in photo_columns:
@@ -101,7 +129,7 @@ def init_db():
         cursor.execute("ALTER TABLE photos ADD COLUMN duration REAL")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_photos_status ON photos(status)")
 
-    # 扫描状态表（新增）
+    # 扫描状态表
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS scan_status (
             id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -117,7 +145,7 @@ def init_db():
     """)
     cursor.execute("INSERT OR IGNORE INTO scan_status (id, status) VALUES (1, 'idle')")
 
-    # 兼容旧数据库：给 blacklist 表加 file_hash 列（如果缺失）
+    # 兼容旧数据库：给 blacklist 表加 file_hash 列
     cursor.execute("PRAGMA table_info(blacklist)")
     columns = {row[1] for row in cursor.fetchall()}
     if 'file_hash' not in columns:
@@ -131,7 +159,7 @@ def init_db():
             (time.time(),)
         )
 
-    # 初始化默认设置（目录路径为空，用户首次启动后在设置页面配置）
+    # 初始化默认设置
     default_settings = {
         "blacklist_duration": "3y",
         "enable_duplicate_filter": "true",

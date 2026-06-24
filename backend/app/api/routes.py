@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
+import time
 from pathlib import Path
 
 from app.services.photo_service import (
@@ -8,8 +9,9 @@ from app.services.photo_service import (
     get_stats, get_blacklist_count, reset_blacklist, reset_stats,
     get_settings, update_setting, get_photo_count, get_directory_info,
     get_scan_status, scan_and_cache, get_cached_photo_count,
-    _to_container_path, _get_thumb_path,
-    get_deleted_photos, restore_photo, restore_all_photos
+    _to_container_path, _get_thumb_path, _validate_path_in_dir,
+    get_deleted_photos, restore_photo, restore_all_photos,
+    empty_recycle
 )
 from app.config import BLACKLIST_DURATION_OPTIONS, NAS_HOST_DIR
 
@@ -105,6 +107,10 @@ async def delete_fav(file_path: str):
 @router.post("/photo/favorite")
 async def favorite(file_path: str):
     """收藏图片"""
+    try:
+        _validate_path_in_dir(_to_container_path(file_path), "photos")
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     result = favorite_photo(_to_container_path(file_path))
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -114,6 +120,10 @@ async def favorite(file_path: str):
 @router.post("/photo/delete")
 async def delete(file_path: str):
     """删除图片（移入回收站）"""
+    try:
+        _validate_path_in_dir(_to_container_path(file_path), "photos")
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     result = delete_photo(_to_container_path(file_path))
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -211,15 +221,23 @@ async def api_recycle_restore_all():
 async def api_recycle_delete(file_path: str):
     """永久删除回收站中的单条记录"""
     container_path = _to_container_path(file_path)
+    try:
+        _validate_path_in_dir(container_path, "recycle")
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     p = Path(container_path)
     if not p.exists():
         raise HTTPException(status_code=404, detail="文件不存在")
     try:
+        file_size = p.stat().st_size
         p.unlink()
-        # 从数据库中删除记录
         from app.models.database import get_db
         db = get_db()
         db.execute("DELETE FROM photos WHERE file_path=? AND status='deleted'", (container_path,))
+        db.execute(
+            "UPDATE stats SET deleted_count=MAX(0, deleted_count-1), cleaned_bytes=MAX(0, cleaned_bytes-?), last_updated=? WHERE id=1",
+            (file_size, time.time())
+        )
         db.commit()
         db.close()
         return {"success": True, "message": "已永久删除"}
@@ -230,23 +248,5 @@ async def api_recycle_delete(file_path: str):
 @router.delete("/recycle/empty")
 async def api_recycle_empty():
     """清空回收站（永久删除全部）"""
-    dirs = _get_dirs()
-    recycle_dir = dirs.get("recycle")
-    if not recycle_dir or not recycle_dir.exists():
-        return {"success": True, "deleted": 0, "message": "回收站为空"}
-
-    photos = scan_photos(recycle_dir)
-    deleted = 0
-    for p in photos:
-        try:
-            Path(p["path"]).unlink()
-            deleted += 1
-        except Exception:
-            continue
-    # 清空数据库中的deleted记录
-    from app.models.database import get_db
-    db = get_db()
-    db.execute("DELETE FROM photos WHERE status='deleted'")
-    db.commit()
-    db.close()
-    return {"success": True, "deleted": deleted, "message": f"已永久删除 {deleted} 个文件"}
+    result = empty_recycle()
+    return result

@@ -14,22 +14,11 @@
 </template>
 
 <script setup>
+import { formatSize, formatDate } from '../utils/format'
+
 defineProps({
   photo: { type: Object, default: null }
 })
-
-function formatDate(dateStr) {
-  if (!dateStr) return ''
-  // EXIF格式: "2024:01:15 14:30:22" → "2024-01-15 14:30"
-  return dateStr.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3').replace(/\s+\d{2}$/, '')
-}
-
-function formatSize(bytes) {
-  if (!bytes) return ''
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
-}
 </script>
 
 <style scoped>

@@ -1,6 +1,6 @@
 <template>
   <transition name="modal-fade">
-    <div v-if="visible" class="modal-overlay" @click.self="$emit('close')">
+    <div v-if="visible" class="modal-overlay" @mousedown.self="onOverlayMouseDown" @click.self="onOverlayClick">
       <div class="modal-content">
         <div class="modal-header">
           <span class="modal-title">设置</span>
@@ -163,6 +163,7 @@
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { updateSetting as apiUpdateSetting, resetBlacklist, resetStats, getSettings, triggerScan as apiTriggerScan, getScanStatus } from '../services/api'
+import { useOverlayClose } from '../utils/overlayClose'
 import ConfirmDialog from './ConfirmDialog.vue'
 import RecyclePanel from './RecyclePanel.vue'
 import FavoritesPanel from './FavoritesPanel.vue'
@@ -173,6 +174,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'updated'])
+const { onOverlayMouseDown, onOverlayClick } = useOverlayClose(() => emit('close'))
 
 const showResetBlacklistConfirm = ref(false)
 const showResetStatsConfirm = ref(false)
@@ -249,6 +251,15 @@ async function loadScanStatus() {
 onMounted(() => { loadScanStatus() })
 onUnmounted(() => { if (scanTimer) clearInterval(scanTimer) })
 
+// 设置面板关闭时停止轮询
+watch(() => props.visible, (val) => {
+  if (!val && scanTimer) {
+    clearInterval(scanTimer)
+    scanTimer = null
+    scanning.value = false
+  }
+})
+
 const durationOptions = [
   { label: '1年', value: '1y' },
   { label: '3年', value: '3y' },
@@ -314,6 +325,7 @@ async function changeSetting(key, value) {
 async function toggleDuplicateFilter() {
   const newVal = props.settings.enable_duplicate_filter === 'true' ? 'false' : 'true'
   await apiUpdateSetting('enable_duplicate_filter', newVal)
+  emit('updated')
 }
 
 async function handleResetBlacklist() {

@@ -1,6 +1,6 @@
 <template>
   <transition name="modal-fade">
-    <div v-if="visible" class="modal-overlay" @click.self="$emit('close')">
+    <div v-if="visible" class="modal-overlay" @mousedown.self="onOverlayMouseDown" @click.self="onOverlayClick">
       <div class="modal-content">
         <div class="modal-header">
           <span class="modal-title">图片信息</span>
@@ -43,14 +43,11 @@ defineProps({
   photo: { type: Object, default: () => ({}) }
 })
 
-defineEmits(['close'])
+import { formatSize } from '../utils/format'
+import { useOverlayClose } from '../utils/overlayClose'
 
-function formatSize(bytes) {
-  if (!bytes) return '未知'
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
-}
+const emit = defineEmits(['close'])
+const { onOverlayMouseDown, onOverlayClick } = useOverlayClose(() => emit('close'))
 </script>
 
 <style scoped>

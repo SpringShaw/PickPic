@@ -2,6 +2,7 @@
 图片服务 - EXIF解析、文件操作、随机算法、缓存、缩略图
 """
 import hashlib
+import logging
 import os
 import random
 import shutil
@@ -10,6 +11,8 @@ import threading
 from pathlib import Path
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
+
+logger = logging.getLogger("photo-sorter")
 
 # 注册HEIC/HEIF格式支持
 try:
@@ -27,7 +30,7 @@ try:
     _RG_AVAILABLE = True
 except ImportError:
     _RG_AVAILABLE = False
-    print("[WARN] reverse_geocoder 未安装，GPS位置信息将显示坐标")
+    logger.warning("reverse_geocoder 未安装，GPS位置信息将显示坐标")
 
 # 扫描锁，防止并发扫描
 _scan_lock = threading.Lock()
@@ -51,7 +54,7 @@ def _gps_to_location(gps: dict) -> str | None:
                 parts = [p for p in [name, admin1] if p]
                 return ", ".join(parts) if parts else None
     except Exception as e:
-        print(f"逆地理编码失败: {e}")
+        logger.error("逆地理编码失败: %s", e)
     return None
 
 
@@ -124,7 +127,7 @@ def get_exif_data(img_path: Path) -> dict:
                             lng = -lng
                         exif_info["gps"] = {"lat": round(lat, 6), "lng": round(lng, 6)}
     except Exception as e:
-        print(f"EXIF解析失败: {img_path}, 错误: {e}")
+        logger.warning("EXIF解析失败: %s, 错误: %s", img_path, e)
     return exif_info
 
 
@@ -142,7 +145,7 @@ def compute_file_hash(file_path: Path) -> str:
             for chunk in iter(lambda: f.read(8192), b""):
                 hash_md5.update(chunk)
     except Exception as e:
-        print(f"计算哈希失败: {file_path}, 错误: {e}")
+        logger.warning("计算哈希失败: %s, 错误: %s", file_path, e)
         return ""
     return hash_md5.hexdigest()
 
@@ -162,7 +165,7 @@ def generate_thumbnail(img_path: Path, thumb_path: Path) -> bool:
         img.save(str(thumb_path), "JPEG", quality=80, optimize=True)
         return True
     except Exception as e:
-        print(f"缩略图生成失败: {img_path}, 错误: {e}")
+        logger.warning("缩略图生成失败: %s, 错误: %s", img_path, e)
         return False
 
 
@@ -188,7 +191,7 @@ def generate_video_thumbnail(video_path: Path, thumb_path: Path) -> bool:
         )
         return result.returncode == 0 and thumb_path.exists()
     except Exception as e:
-        print(f"视频缩略图生成失败: {video_path}, 错误: {e}")
+        logger.warning("视频缩略图生成失败: %s, 错误: %s", video_path, e)
         return False
 
 
@@ -221,7 +224,7 @@ def get_video_metadata(video_path: Path) -> dict:
                 break
         return meta
     except Exception as e:
-        print(f"视频元数据提取失败: {video_path}, 错误: {e}")
+        logger.warning("视频元数据提取失败: %s, 错误: %s", video_path, e)
         return {}
 
 
@@ -407,9 +410,9 @@ def scan_and_cache(force: bool = False) -> dict:
                         if ok:
                             recycled_thumbs += 1
             if recycled_thumbs:
-                print(f"✅ 回收站补生成缩略图: {recycled_thumbs} 个")
+                logger.info("回收站补生成缩略图: %s 个", recycled_thumbs)
         except Exception as e:
-            print(f"⚠️ 回收站缩略图补生成失败: {e}")
+            logger.warning("回收站缩略图补生成失败: %s", e)
 
         # 最终提交
         db.execute(
@@ -427,11 +430,11 @@ def scan_and_cache(force: bool = False) -> dict:
             "updated": updated_count,
             "deleted": deleted_count,
         }
-        print(f"✅ 扫描完成: {result}")
+        logger.info("扫描完成: %s", result)
         return result
 
     except Exception as e:
-        print(f"❌ 扫描异常: {e}")
+        logger.exception("扫描异常: %s", e)
         try:
             db = get_db()
             db.execute("UPDATE scan_status SET status='error' WHERE id=1")
@@ -890,6 +893,51 @@ def update_setting(key: str, value: str):
     db.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
     db.commit()
     db.close()
+
+
+def empty_recycle() -> dict:
+    """清空回收站 — 永久删除全部已删除照片并清理数据库记录"""
+    dirs = _get_dirs()
+    recycle_dir = dirs.get("recycle")
+    if not recycle_dir or not recycle_dir.exists():
+        return {"success": True, "deleted": 0, "message": "回收站为空"}
+
+    db = get_db()
+    rows = db.execute("SELECT file_path, file_size FROM photos WHERE status='deleted'").fetchall()
+    deleted = 0
+    cleaned_bytes = 0
+    for row in rows:
+        try:
+            p = Path(row["file_path"])
+            if p.exists():
+                p.unlink()
+                cleaned_bytes += row["file_size"] or 0
+            deleted += 1
+        except Exception as e:
+            logger.warning("清空回收站删除文件失败: %s, 错误: %s", row['file_path'], e)
+    db.execute("DELETE FROM photos WHERE status='deleted'")
+    db.execute(
+        "UPDATE stats SET deleted_count=MAX(0, deleted_count-?), cleaned_bytes=MAX(0, cleaned_bytes-?), last_updated=? WHERE id=1",
+        (deleted, cleaned_bytes, time.time())
+    )
+    db.commit()
+    db.close()
+    return {"success": True, "deleted": deleted, "message": f"已永久删除 {deleted} 个文件"}
+
+
+def _validate_path_in_dir(file_path: str, dir_key: str) -> Path:
+    """验证文件路径在指定的配置目录内，返回解析后的 Path；不在则抛出 ValueError"""
+    dirs = _get_dirs()
+    target_dir = dirs.get(dir_key)
+    if not target_dir:
+        raise ValueError(f"{dir_key} 目录未配置")
+    p = Path(file_path).resolve()
+    target_resolved = target_dir.resolve()
+    try:
+        p.relative_to(target_resolved)
+    except ValueError:
+        raise ValueError(f"文件不在 {dir_key} 目录内: {file_path}")
+    return p
 
 
 def get_photo_count() -> int:

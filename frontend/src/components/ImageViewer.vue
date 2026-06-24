@@ -1,6 +1,6 @@
 <template>
   <transition name="viewer-fade">
-    <div v-if="visible" class="viewer-overlay" @click.self="$emit('close')">
+    <div v-if="visible" class="viewer-overlay" @mousedown.self="onOverlayMouseDown" @click.self="onOverlayClick">
       <!-- 关闭按钮 -->
       <button class="viewer-close" @click="$emit('close')">✕</button>
 
@@ -14,7 +14,7 @@
         @mousedown="onMouseDown"
         @mousemove="onMouseMove"
         @mouseup="onMouseUp"
-        @wheel="onWheel"
+        @wheel.prevent="onWheel"
       >
         <!-- 视频 -->
         <video
@@ -56,6 +56,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { getImageUrl, getThumbnailUrl } from '../services/api'
+import { useOverlayClose } from '../utils/overlayClose'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -63,6 +64,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close'])
+const { onOverlayMouseDown, onOverlayClick } = useOverlayClose(() => emit('close'))
 
 const containerRef = ref(null)
 const imgRef = ref(null)

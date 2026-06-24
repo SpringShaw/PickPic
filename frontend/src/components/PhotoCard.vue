@@ -149,25 +149,31 @@ function onTouchStart(e) {
   showIndicator.value = false
 }
 
+// 共享：根据位移更新方向指示器
+function updateIndicator() {
+  const dx = moveX.value
+  const dy = moveY.value
+  if (Math.abs(dx) > 50 && dx > 0) {
+    showIndicator.value = true
+    indicatorType.value = 'right'
+  } else if (dx < -50) {
+    showIndicator.value = true
+    indicatorType.value = 'left'
+  } else if (Math.abs(dy) > 50 && dy < 0) {
+    showIndicator.value = true
+    indicatorType.value = 'up'
+  } else {
+    showIndicator.value = false
+  }
+}
+
 function onTouchMove(e) {
   if (!isDragging.value || props.mode !== 'front') return
   const touch = e.touches[0]
   moveX.value = touch.clientX - startX.value
   moveY.value = touch.clientY - startY.value
   emitSwipeProgress()
-
-  if (Math.abs(moveX.value) > 50 && moveX.value > 0) {
-    showIndicator.value = true
-    indicatorType.value = 'right'
-  } else if (moveX.value < -50) {
-    showIndicator.value = true
-    indicatorType.value = 'left'
-  } else if (Math.abs(moveY.value) > 50 && moveY.value < 0) {
-    showIndicator.value = true
-    indicatorType.value = 'up'
-  } else {
-    showIndicator.value = false
-  }
+  updateIndicator()
 }
 
 function onTouchEnd() {
@@ -192,19 +198,7 @@ function onMouseMove(e) {
   moveX.value = e.clientX - startX.value
   moveY.value = e.clientY - startY.value
   emitSwipeProgress()
-
-  if (Math.abs(moveX.value) > 50 && moveX.value > 0) {
-    showIndicator.value = true
-    indicatorType.value = 'right'
-  } else if (moveX.value < -50) {
-    showIndicator.value = true
-    indicatorType.value = 'left'
-  } else if (Math.abs(moveY.value) > 50 && moveY.value < 0) {
-    showIndicator.value = true
-    indicatorType.value = 'up'
-  } else {
-    showIndicator.value = false
-  }
+  updateIndicator()
 }
 
 function onMouseUp() {
