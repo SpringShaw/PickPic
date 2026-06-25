@@ -11,6 +11,12 @@
 [![拣影 手机端演示](https://i0.hdslb.com/bfs/archive/3dc7e11d737f9ac3e20c489ea4ed8df154316e54.jpg@672w_378h_1c.webp)](https://www.bilibili.com/video/BV1qh7b6xEwN) | [![拣影 PC 端演示](https://i0.hdslb.com/bfs/archive/4677f9761e4678d7097d8bff1659b0025e7ce4c1.jpg@672w_378h_1c.webp)](https://www.bilibili.com/video/BV1Rv7b6XEqu)
 ↑ 点击封面播放 | ↑ 点击封面播放
 
+### 截图
+
+| 照片 | 设置 | 设置 | 视频 |
+|:--:|:--:|:--:|:--:|
+| <img src="README.assets/Screenshot_2026-06-25-12-32-50-074_com.trim.app-edit.png" alt="Screenshot_2026-06-25-12-32-50-074_com.trim.app-edit" style="zoom:25%;" /> | <img src="README.assets/Screenshot_2026-06-25-12-33-02-899_com.trim.app-edit.png" alt="Screenshot_2026-06-25-12-33-02-899_com.trim.app-edit" style="zoom:25%;" /> | <img src="README.assets/Screenshot_2026-06-25-12-33-08-236_com.trim.app-edit.png" alt="Screenshot_2026-06-25-12-33-08-236_com.trim.app-edit" style="zoom:25%;" /> | <img src="README.assets/Screenshot_2026-06-25-12-33-22-568_com.trim.app-edit.png" alt="Screenshot_2026-06-25-12-33-22-568_com.trim.app-edit" style="zoom:25%;" /> |
+
 ## 功能特性
 
 ### 📷 随机推送

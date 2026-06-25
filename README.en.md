@@ -11,6 +11,12 @@
 [![PickPic Mobile Demo](https://i0.hdslb.com/bfs/archive/3dc7e11d737f9ac3e20c489ea4ed8df154316e54.jpg@672w_378h_1c.webp)](https://www.bilibili.com/video/BV1qh7b6xEwN) | [![PickPic Desktop Demo](https://i0.hdslb.com/bfs/archive/4677f9761e4678d7097d8bff1659b0025e7ce4c1.jpg@672w_378h_1c.webp)](https://www.bilibili.com/video/BV1Rv7b6XEqu)
 ↑ Click cover to play | ↑ Click cover to play
 
+### Screenshots
+
+| Photo | Settings | Settings | Video |
+|:--:|:--:|:--:|:--:|
+| <img src="README.en.assets/Screenshot_2026-06-25-12-34-40-572_com.trim.app-edit.png" alt="Screenshot_2026-06-25-12-34-40-572_com.trim.app-edit" style="zoom:25%;" /> | <img src="README.en.assets/Screenshot_2026-06-25-12-34-47-555_com.trim.app-edit.png" alt="Screenshot_2026-06-25-12-34-47-555_com.trim.app-edit" style="zoom:25%;" /> | <img src="README.en.assets/Screenshot_2026-06-25-12-34-53-100_com.trim.app-edit.png" alt="Screenshot_2026-06-25-12-34-53-100_com.trim.app-edit" style="zoom:25%;" /> | <img src="README.en.assets/Screenshot_2026-06-25-12-33-43-522_com.trim.app-edit.png" alt="Screenshot_2026-06-25-12-33-43-522_com.trim.app-edit" style="zoom:25%;" /> |
+
 ## Features
 
 ### 📷 Random Shuffle
