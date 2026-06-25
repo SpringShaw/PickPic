@@ -71,10 +71,6 @@
           @click="switchMode('video')"
         >{{ t('videoMode') }}</button>
       </div>
-      <!-- 语言切换 -->
-      <button class="lang-btn" :title="t('languageToggleTitle')" @click="toggleLocale">
-        {{ t('languageToggle') }}
-      </button>
     </div>
 
     <!-- 查看原图按钮（底部居中） -->
@@ -135,7 +131,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { getRandomPhoto, favoritePhoto, deletePhoto, getStats, getSettings } from './services/api'
-import { t, locale, toggleLocale } from './i18n'
+import { t, locale } from './i18n'
 import PhotoCard from './components/PhotoCard.vue'
 import StatsBar from './components/StatsBar.vue'
 import InfoPanel from './components/InfoPanel.vue'
@@ -404,23 +400,6 @@ onMounted(() => {
   background: #007AFF;
   color: #fff;
   border-color: #007AFF;
-}
-
-.lang-btn {
-  margin-top: 6px;
-  padding: 4px 12px;
-  border-radius: 12px;
-  border: 1px solid #e0e0e0;
-  background: #fff;
-  color: #888;
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.lang-btn:hover {
-  border-color: #007AFF;
-  color: #007AFF;
 }
 
 .empty-state {
