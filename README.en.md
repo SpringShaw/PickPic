@@ -6,9 +6,10 @@
 
 ## Preview
 
-[![PickPic Mobile Demo](https://i0.hdslb.com/bfs/archive/3dc7e11d737f9ac3e20c489ea4ed8df154316e54.jpg@672w_378h_1c.webp)](https://www.bilibili.com/video/BV1qh7b6xEwN)
-
-> Screenshots coming soon. Place in `README.en.assets/`.
+**📱 Mobile** &nbsp;&nbsp;|&nbsp;&nbsp; **🖥️ Desktop**
+:--: | :--:
+[![PickPic Mobile Demo](https://i0.hdslb.com/bfs/archive/3dc7e11d737f9ac3e20c489ea4ed8df154316e54.jpg@672w_378h_1c.webp)](https://www.bilibili.com/video/BV1qh7b6xEwN) | [![PickPic Desktop Demo](https://i0.hdslb.com/bfs/archive/4677f9761e4678d7097d8bff1659b0025e7ce4c1.jpg@672w_378h_1c.webp)](https://www.bilibili.com/video/BV1Rv7b6XEqu)
+↑ Click cover to play | ↑ Click cover to play
 
 ## Features
 

@@ -6,9 +6,10 @@
 
 ## 界面预览
 
-[![拣影 手机端演示](https://i0.hdslb.com/bfs/archive/3dc7e11d737f9ac3e20c489ea4ed8df154316e54.jpg@672w_378h_1c.webp)](https://www.bilibili.com/video/BV1qh7b6xEwN)
-
-> 截图待补充，请放入 `README.assets/` 目录。
+**📱 手机端** &nbsp;&nbsp;|&nbsp;&nbsp; **🖥️ PC 端**
+:--: | :--:
+[![拣影 手机端演示](https://i0.hdslb.com/bfs/archive/3dc7e11d737f9ac3e20c489ea4ed8df154316e54.jpg@672w_378h_1c.webp)](https://www.bilibili.com/video/BV1qh7b6xEwN) | [![拣影 PC 端演示](https://i0.hdslb.com/bfs/archive/4677f9761e4678d7097d8bff1659b0025e7ce4c1.jpg@672w_378h_1c.webp)](https://www.bilibili.com/video/BV1Rv7b6XEqu)
+↑ 点击封面播放 | ↑ 点击封面播放
 
 ## 功能特性
 
