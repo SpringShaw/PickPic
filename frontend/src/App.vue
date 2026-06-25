@@ -103,6 +103,11 @@
       <div v-if="recallMsg" class="recall-toast">{{ recallMsg }}</div>
     </transition>
 
+    <!-- 语言切换（右上角） -->
+    <button class="lang-btn" @click="toggleLocale" :title="t('languageToggleTitle')">
+      {{ t('languageToggle') }}
+    </button>
+
     <!-- 设置入口（左下角齿轮） -->
     <button class="settings-btn" @click="showSettings = true">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2">
@@ -131,7 +136,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { getRandomPhoto, favoritePhoto, deletePhoto, getStats, getSettings } from './services/api'
-import { t, locale } from './i18n'
+import { t, locale, toggleLocale } from './i18n'
 import PhotoCard from './components/PhotoCard.vue'
 import StatsBar from './components/StatsBar.vue'
 import InfoPanel from './components/InfoPanel.vue'
@@ -453,6 +458,27 @@ onMounted(() => {
 }
 
 .settings-btn:active {
+  background: #f0f0f0;
+}
+
+.lang-btn {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  right: 16px;
+  z-index: 50;
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid #eee;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #888;
+  font-size: 11px;
+  cursor: pointer;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+
+.lang-btn:active {
   background: #f0f0f0;
 }
 
