@@ -90,7 +90,7 @@
 ## 📦 项目结构
 
 ```
-Photo-Sorter/
+PickPic/
 ├── frontend/                # Vue3 + Vite + TailwindCSS
 │   └── src/
 │       ├── App.vue          # 主页面（双层卡片架构）
@@ -134,15 +134,53 @@ docker compose up -d --build
 # 访问 http://localhost:8082
 ```
 
-### 方式三：本地开发
+### 方式三：裸机部署
+
+适用于 Linux / macOS / Windows 主机，无 Docker 环境。
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/SpringShaw/PickPic.git
+cd PickPic
+
+# 2. 安装后端依赖
+cd backend
+pip install -r requirements.txt
+
+# 3. 构建前端
+cd ../frontend
+npm install
+npm run build
+
+# 4. 将前端产物复制到后端静态目录
+cp -r dist/* ../backend/static/
+
+# 5. 创建数据目录
+cd ../backend
+mkdir -p data/db data/thumbnails
+
+# 6. 配置环境变量（可选）
+export PHOTOS_DIR=/path/to/your/photos
+export FAVORITES_DIR=/path/to/your/favorites
+export RECYCLE_DIR=/path/to/your/recycle
+
+# 7. 启动服务
+uvicorn app.main:app --host 0.0.0.0 --port 8082
+```
+
+生产环境建议配合 systemd / supervisor / pm2 做进程守护，或直接用 Docker。
+
+### 方式四：本地开发
+
+前后端分离热更新，适合调试。
 
 ```bash
 # 后端
 cd backend
 pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8082
+uvicorn app.main:app --host 0.0.0.0 --port 8082 --reload
 
-# 前端（开发模式）
+# 前端（另开终端）
 cd frontend
 npm install
 npm run dev

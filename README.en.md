@@ -90,7 +90,7 @@
 ## Project Structure
 
 ```
-Photo-Sorter/
+PickPic/
 ├── frontend/                # Vue3 + Vite + TailwindCSS
 │   └── src/
 │       ├── App.vue          # Main page (dual-card architecture)
@@ -134,15 +134,53 @@ docker compose up -d --build
 # Visit http://localhost:8082
 ```
 
-### Option 3: Local Development
+### Option 3: Bare-Metal Deployment
+
+For Linux / macOS / Windows without Docker.
 
 ```bash
-# Backend
+# 1. Clone the repo
+git clone https://github.com/SpringShaw/PickPic.git
+cd PickPic
+
+# 2. Install backend dependencies
 cd backend
 pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8082
 
-# Frontend (dev mode)
+# 3. Build the frontend
+cd ../frontend
+npm install
+npm run build
+
+# 4. Copy frontend assets to backend static dir
+cp -r dist/* ../backend/static/
+
+# 5. Create data directories
+cd ../backend
+mkdir -p data/db data/thumbnails
+
+# 6. Set environment variables (optional)
+export PHOTOS_DIR=/path/to/your/photos
+export FAVORITES_DIR=/path/to/your/favorites
+export RECYCLE_DIR=/path/to/your/recycle
+
+# 7. Start the server
+uvicorn app.main:app --host 0.0.0.0 --port 8082
+```
+
+For production, use systemd / supervisor / pm2 to keep the process alive.
+
+### Option 4: Local Development
+
+Separate frontend/backend with hot reload, ideal for debugging.
+
+```bash
+# Backend (terminal 1)
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8082 --reload
+
+# Frontend (terminal 2)
 cd frontend
 npm install
 npm run dev
