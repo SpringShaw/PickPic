@@ -91,24 +91,30 @@
 
 ```
 PickPic/
-├── frontend/                # Vue3 + Vite + TailwindCSS
+├── frontend/                 # Vue3 + Vite + TailwindCSS
 │   └── src/
-│       ├── App.vue          # Main page (dual-card architecture)
-│       ├── components/      # 9 components
-│       ├── services/api.js  # API client (15 endpoints)
-│       └── utils/           # Shared utility functions
-├── backend/                 # Python3 + FastAPI + SQLite
+│       ├── App.vue           # Main page (dual-card architecture)
+│       ├── components/       # 9 components
+│       ├── i18n/             # Bilingual module (zh/en)
+│       ├── styles/           # Shared CSS (modal / gridPanel)
+│       ├── services/api.js   # API client (15 endpoints)
+│       └── utils/            # Shared utility functions
+├── backend/                  # Python3 + FastAPI + SQLite
 │   └── app/
-│       ├── main.py          # FastAPI entry point
-│       ├── config.py        # Configuration
-│       ├── models/          # Database models
-│       ├── api/routes.py    # 19 REST API endpoints
-│       └── services/        # Core business logic
+│       ├── main.py           # FastAPI entry point
+│       ├── config.py         # Configuration
+│       ├── models/           # Database models
+│       ├── api/routes.py     # 19 REST API endpoints
+│       └── services/         # Core business logic
+├── README.md / README.en.md  # Bilingual docs
+├── README.assets/            # Chinese screenshots
+├── README.en.assets/         # English screenshots
 ├── Dockerfile
 ├── docker-compose.yml
-├── deploy.sh                # One-click deploy script
-├── ROADMAP.md               # Development roadmap
-└── LICENSE                  # MIT
+├── deploy.sh                 # One-click deploy script
+├── .env.example              # Environment template
+├── .gitignore
+└── LICENSE                   # MIT
 ```
 
 ## Quick Start
@@ -116,8 +122,8 @@ PickPic/
 ### Option 1: Docker (Recommended)
 
 ```bash
-git clone https://github.com/SpringShaw/Photo-Sorter.git
-cd Photo-Sorter
+git clone https://github.com/SpringShaw/PickPic.git
+cd PickPic
 cp .env.example .env
 # Edit .env: set PHOTOS_DIR, FAVORITES_DIR, RECYCLE_DIR
 chmod +x deploy.sh
@@ -223,10 +229,6 @@ npm run dev
 |------|---------|
 | Images | JPG, JPEG, PNG, WebP, HEIC, HEIF, BMP, GIF, TIFF |
 | Videos | MP4, MOV, AVI, MKV, WebM, 3GP, FLV |
-
-## Changelog
-
-See [ROADMAP.md](./ROADMAP.md) for completed features and development plans.
 
 ## Highlights
 

@@ -91,24 +91,30 @@
 
 ```
 PickPic/
-├── frontend/                # Vue3 + Vite + TailwindCSS
+├── frontend/                 # Vue3 + Vite + TailwindCSS
 │   └── src/
-│       ├── App.vue          # 主页面（双层卡片架构）
-│       ├── components/      # 9 个组件
-│       ├── services/api.js  # API 封装（15 个接口）
-│       └── utils/           # 共享工具函数
-├── backend/                 # Python3 + FastAPI + SQLite
+│       ├── App.vue           # 主页面（双层卡片架构）
+│       ├── components/       # 9 个组件
+│       ├── i18n/             # 中英文双语模块
+│       ├── styles/           # 共享 CSS（modal / gridPanel）
+│       ├── services/api.js   # API 封装（15 个接口）
+│       └── utils/            # 共享工具函数
+├── backend/                  # Python3 + FastAPI + SQLite
 │   └── app/
-│       ├── main.py          # FastAPI 入口
-│       ├── config.py        # 配置项
-│       ├── models/          # 数据库模型
-│       ├── api/routes.py    # 19 个 REST API
-│       └── services/        # 核心业务逻辑
+│       ├── main.py           # FastAPI 入口
+│       ├── config.py         # 配置项
+│       ├── models/           # 数据库模型
+│       ├── api/routes.py     # 19 个 REST API
+│       └── services/         # 核心业务逻辑
+├── README.md / README.en.md  # 中英文文档
+├── README.assets/            # 中文截图
+├── README.en.assets/         # 英文截图
 ├── Dockerfile
 ├── docker-compose.yml
-├── deploy.sh                # 一键部署脚本
-├── ROADMAP.md               # 开发计划
-└── LICENSE                  # MIT
+├── deploy.sh                 # 一键部署脚本
+├── .env.example              # 环境变量模板
+├── .gitignore
+└── LICENSE                   # MIT
 ```
 
 ## 🚀 快速开始
@@ -116,8 +122,8 @@ PickPic/
 ### 方式一：Docker 部署（推荐）
 
 ```bash
-git clone https://github.com/SpringShaw/Photo-Sorter.git
-cd Photo-Sorter
+git clone https://github.com/SpringShaw/PickPic.git
+cd PickPic
 cp .env.example .env
 # 编辑 .env 配置 PHOTOS_DIR、FAVORITES_DIR、RECYCLE_DIR
 chmod +x deploy.sh
@@ -223,10 +229,6 @@ npm run dev
 |------|------|
 | 图片 | JPG, JPEG, PNG, WebP, HEIC, HEIF, BMP, GIF, TIFF |
 | 视频 | MP4, MOV, AVI, MKV, WebM, 3GP, FLV |
-
-## 版本历史
-
-查看 [ROADMAP.md](./ROADMAP.md) 了解已完成功能和开发计划。
 
 ## 特点
 
