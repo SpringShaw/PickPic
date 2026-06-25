@@ -6,7 +6,9 @@
 
 ## Preview
 
-> Screenshots coming soon. Place English UI screenshots in `README.en.assets/`.
+[![PickPic Mobile Demo](https://i0.hdslb.com/bfs/archive/3dc7e11d737f9ac3e20c489ea4ed8df154316e54.jpg@672w_378h_1c.webp)](https://www.bilibili.com/video/BV1qh7b6xEwN)
+
+> Screenshots coming soon. Place in `README.en.assets/`.
 
 ## Features
 
