@@ -4,6 +4,9 @@
       <div class="modal-content">
         <div class="modal-header">
           <span class="modal-title">{{ t('settings') }}</span>
+          <button class="header-lang-btn" @click="toggleLocale" :title="t('languageToggleTitle')">
+            {{ t('languageToggle') }}
+          </button>
           <button class="modal-close" @click="$emit('close')">×</button>
         </div>
         <div class="modal-body">
@@ -164,7 +167,7 @@
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { updateSetting as apiUpdateSetting, resetBlacklist, resetStats, getSettings, triggerScan as apiTriggerScan, getScanStatus } from '../services/api'
 import { useOverlayClose } from '../utils/overlayClose'
-import { t } from '../i18n'
+import { t, toggleLocale } from '../i18n'
 import ConfirmDialog from './ConfirmDialog.vue'
 import RecyclePanel from './RecyclePanel.vue'
 import FavoritesPanel from './FavoritesPanel.vue'
@@ -369,6 +372,21 @@ async function handleResetStats() {
 
 <style scoped>
 @import '../styles/modal.css';
+
+.header-lang-btn {
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  color: #999;
+  font-size: 11px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.header-lang-btn:active {
+  background: #f0f0f0;
+}
 
 .setting-group {
   background: #fff;
