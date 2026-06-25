@@ -1,8 +1,8 @@
-# QuLiu — Photo Sorter
+# PickPic — Photo Organizer
 
 **English** | [简体中文](./README.md)
 
-> A web-based photo sorting tool that faithfully replicates the iOS hit app "去留" (QuLiu). Tinder-style card interactions for quick keep-or-delete decisions. **Runs entirely offline — no network requests, no data collection.** Features random photo shuffle, gesture controls (swipe right/up/double-tap/left recall), smart blacklist, MD5 dedup, thumbnail caching, video playback, full-screen viewer, recycle bin, favorites, EXIF parsing, and more.
+> A web-based photo sorting tool with Tinder-style card interactions for quick keep-or-delete decisions. **Runs entirely offline — no network requests, no data collection.** Features random photo shuffle, gesture controls (swipe right/up/double-tap/left recall), smart blacklist, MD5 dedup, thumbnail caching, video playback, full-screen viewer, recycle bin, favorites, EXIF parsing, and more.
 
 ## Preview
 
@@ -196,4 +196,3 @@ See [ROADMAP.md](./ROADMAP.md) for completed features and development plans.
 
 ## Credits
 
-Inspired by the iOS app "去留" (QuLiu)

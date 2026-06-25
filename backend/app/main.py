@@ -19,9 +19,9 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
-logger = logging.getLogger("photo-sorter")
+logger = logging.getLogger("pickpic")
 
-app = FastAPI(title="去留 - 相册整理工具", version="2.0.0")
+app = FastAPI(title="拣影 - 相册整理工具", version="2.0.0")
 
 
 @app.exception_handler(Exception)
@@ -51,7 +51,7 @@ async def startup():
     DB_DIR.mkdir(parents=True, exist_ok=True)
     THUMBNAIL_DIR.mkdir(parents=True, exist_ok=True)
     init_db()
-    logger.info("去留 相册整理工具已启动 (v2.0 - 缓存+缩略图)")
+    logger.info("拣影 相册整理工具已启动 (v2.0 - 缓存+缩略图)")
     logger.info("默认图片目录: %s", Path(DEFAULT_PHOTOS_DIR).name if DEFAULT_PHOTOS_DIR else '(请在设置中配置)')
     logger.info("默认收藏目录: %s", Path(DEFAULT_STAR_DIR).name if DEFAULT_STAR_DIR else '(请在设置中配置)')
     logger.info("默认回收站: %s", Path(DEFAULT_RECYCLE_DIR).name if DEFAULT_RECYCLE_DIR else '(请在设置中配置)')

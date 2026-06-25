@@ -1,11 +1,11 @@
 version: '3.8'
 
 services:
-  photo-sorter:
+  pickpic:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: photo-sorter
+    container_name: pickpic
     restart: always
     network_mode: bridge
     ports:

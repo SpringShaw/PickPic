@@ -12,7 +12,7 @@ from pathlib import Path
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 
-logger = logging.getLogger("photo-sorter")
+logger = logging.getLogger("pickpic")
 
 # 注册HEIC/HEIF格式支持
 try:

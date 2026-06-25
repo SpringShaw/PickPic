@@ -9,7 +9,7 @@ import { ref } from 'vue'
 const messages = {
   zh: {
     // App
-    appTitle: '去留 - 相册整理工具',
+    appTitle: '拣影 - 相册整理工具',
     noPhotos: '暂无可浏览的图片',
     noPhotosHint: '请确认图片目录已正确挂载',
     loadError: '加载失败，请检查网络连接',
@@ -70,7 +70,7 @@ const messages = {
     favoritesManage: '⭐ 收藏夹',
     resetBlacklist: '重置黑名单',
     resetStats: '重置统计数据',
-    footerVersion: '去留 v1.0 · 纯本地运行',
+    footerVersion: '拣影 v1.0 · 纯本地运行',
     footerLocal: '所有数据均保存在 NAS 本地',
     dirNotSet: '未填写',
     dirOkPhotos: '{count} 张图片',
@@ -126,7 +126,7 @@ const messages = {
 
   en: {
     // App
-    appTitle: 'QuLiu — Photo Sorter',
+    appTitle: 'PickPic — Photo Organizer',
     noPhotos: 'No photos to browse',
     noPhotosHint: 'Please check that the photo directory is mounted',
     loadError: 'Failed to load. Please check your network connection.',
@@ -187,7 +187,7 @@ const messages = {
     favoritesManage: '⭐ Favorites',
     resetBlacklist: 'Reset Blacklist',
     resetStats: 'Reset Statistics',
-    footerVersion: 'QuLiu v1.0 · Fully Offline',
+    footerVersion: 'PickPic v1.0 · Fully Offline',
     footerLocal: 'All data stored locally on your NAS',
     dirNotSet: 'Not set',
     dirOkPhotos: '{count} photos',

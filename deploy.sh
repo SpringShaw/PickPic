@@ -33,6 +33,6 @@ echo "🚀 启动服务..."
 docker compose up -d
 
 echo ""
-echo "✅ Photo Sorter 已启动"
+echo "✅ PickPic 已启动"
 echo "   访问: http://localhost:${PORT:-8082}"
 echo "   健康检查: curl http://localhost:${PORT:-8082}/api/stats"

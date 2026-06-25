@@ -4,7 +4,7 @@ from pathlib import Path
 # 基础路径配置
 BASE_DIR = Path(__file__).resolve().parent.parent
 DB_DIR = Path(os.getenv("DB_DIR", "/app/db"))
-DB_PATH = DB_DIR / "photo_sorter.db"
+DB_PATH = DB_DIR / "pickpic.db"
 
 # 容器内挂载的目录
 NAS_HOST_DIR = Path(os.getenv("NAS_HOST_DIR", "/nas/host"))

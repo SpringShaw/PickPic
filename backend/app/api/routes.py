@@ -17,7 +17,7 @@ from app.services.photo_service import (
 )
 from app.config import BLACKLIST_DURATION_OPTIONS, NAS_HOST_DIR, THUMBNAIL_DIR
 
-logger = logging.getLogger("photo-sorter")
+logger = logging.getLogger("pickpic")
 
 router = APIRouter(prefix="/api")
 
